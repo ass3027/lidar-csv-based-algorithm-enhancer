@@ -1,0 +1,444 @@
+#!/usr/bin/env python3
+"""
+대기열 예상시간 알고리즘 로그 분석 스크립트 (이상치 필터링 버전)
+Analyzes queue estimation algorithm logs with outlier filtering
+"""
+
+import csv
+import json
+from pathlib import Path
+from datetime import datetime
+from collections import defaultdict
+import math
+
+def calculate_quartiles(values):
+    """Calculate Q1, Q2 (median), Q3 for a list of values"""
+    if not values:
+        return None, None, None
+    
+    sorted_vals = sorted(values)
+    n = len(sorted_vals)
+    
+    # Q2 (Median)
+    if n % 2 == 0:
+        q2 = (sorted_vals[n//2 - 1] + sorted_vals[n//2]) / 2
+    else:
+        q2 = sorted_vals[n//2]
+    
+    # Q1
+    lower_half = sorted_vals[:n//2]
+    if len(lower_half) % 2 == 0:
+        q1 = (lower_half[len(lower_half)//2 - 1] + lower_half[len(lower_half)//2]) / 2
+    else:
+        q1 = lower_half[len(lower_half)//2]
+    
+    # Q3
+    upper_half = sorted_vals[(n+1)//2:]
+    if len(upper_half) % 2 == 0:
+        q3 = (upper_half[len(upper_half)//2 - 1] + upper_half[len(upper_half)//2]) / 2
+    else:
+        q3 = upper_half[len(upper_half)//2]
+    
+    return q1, q2, q3
+
+def detect_outliers_iqr(values, multiplier=1.5):
+    """Detect outliers using IQR method"""
+    q1, q2, q3 = calculate_quartiles(values)
+    if q1 is None:
+        return set()
+    
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    outlier_indices = set()
+    for i, val in enumerate(values):
+        if val < lower_bound or val > upper_bound:
+            outlier_indices.add(i)
+    
+    return outlier_indices
+
+def load_all_logs(log_dir="passing_log"):
+    """Load all CSV log files from the directory"""
+    log_path = Path(log_dir)
+    all_data = []
+    
+    for csv_file in sorted(log_path.glob("passingObject_*.csv")):
+        print(f"로딩중: {csv_file.name}...")
+        with open(csv_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                row['date'] = csv_file.stem.replace('passingObject_', '')
+                # Convert numeric values
+                row['zone_id'] = int(row['zone_id'])
+                row['objectCount'] = int(row['objectCount'])
+                row['lidarEstTime'] = float(row['lidarEstTime'])
+                row['throughputEstTime'] = float(row['throughputEstTime'])
+                row['finalEstTime'] = float(row['finalEstTime'])
+                row['actualPassTime'] = int(row['actualPassTime'])
+                all_data.append(row)
+    
+    return all_data
+
+def filter_outliers(data):
+    """Filter outliers from the dataset using IQR method"""
+    print("\n이상치 탐지 중...")
+    
+    # Extract values for outlier detection
+    actual_times = [row['actualPassTime'] for row in data]
+    lidar_errors = [row['lidarEstTime'] - row['actualPassTime'] for row in data]
+    throughput_errors = [row['throughputEstTime'] - row['actualPassTime'] for row in data]
+    final_errors = [row['finalEstTime'] - row['actualPassTime'] for row in data]
+    
+    # Detect outliers for each metric
+    outliers_actual = detect_outliers_iqr(actual_times)
+    outliers_lidar = detect_outliers_iqr(lidar_errors)
+    outliers_throughput = detect_outliers_iqr(throughput_errors)
+    outliers_final = detect_outliers_iqr(final_errors)
+    
+    # Combine all outlier indices
+    all_outliers = outliers_actual | outliers_lidar | outliers_throughput | outliers_final
+    
+    # Create filtered dataset
+    filtered_data = [row for i, row in enumerate(data) if i not in all_outliers]
+    
+    # Statistics
+    total_count = len(data)
+    removed_count = len(all_outliers)
+    filtered_count = len(filtered_data)
+    removal_rate = (removed_count / total_count) * 100
+    
+    outlier_stats = {
+        'total_records': total_count,
+        'removed_records': removed_count,
+        'filtered_records': filtered_count,
+        'removal_rate_pct': removal_rate,
+        'outliers_by_type': {
+            'actual_time': len(outliers_actual),
+            'lidar_error': len(outliers_lidar),
+            'throughput_error': len(outliers_throughput),
+            'final_error': len(outliers_final)
+        }
+    }
+    
+    print(f"  총 레코드: {total_count:,} 건")
+    print(f"  제거된 레코드: {removed_count:,} 건 ({removal_rate:.1f}%)")
+    print(f"  필터링 후: {filtered_count:,} 건")
+    
+    return filtered_data, outlier_stats
+
+def calculate_statistics(values):
+    """Calculate basic statistics for a list of values"""
+    if not values:
+        return {}
+    
+    values = sorted(values)
+    n = len(values)
+    mean = sum(values) / n
+    variance = sum((x - mean) ** 2 for x in values) / n
+    std = math.sqrt(variance)
+    
+    # Median
+    if n % 2 == 0:
+        median = (values[n//2 - 1] + values[n//2]) / 2
+    else:
+        median = values[n//2]
+    
+    return {
+        'min': min(values),
+        'max': max(values),
+        'mean': mean,
+        'median': median,
+        'std': std
+    }
+
+def analyze_logs(data):
+    """Main analysis function"""
+    print(f"\n총 {len(data):,} 건의 로그 분석 중...\n")
+    
+    # Initialize collections
+    zone_data = defaultdict(list)
+    date_data = defaultdict(list)
+    
+    lidar_errors = []
+    throughput_errors = []
+    final_errors = []
+    
+    lidar_abs_errors = []
+    throughput_abs_errors = []
+    final_abs_errors = []
+    
+    lidar_pct_errors = []
+    throughput_pct_errors = []
+    final_pct_errors = []
+    
+    object_counts = []
+    actual_times = []
+    zones = set()
+    dates = set()
+    
+    # Issue counters
+    issues = {
+        'high_error_cases': {'lidar': 0, 'throughput': 0, 'final': 0},
+        'underestimation': {'lidar': 0, 'throughput': 0, 'final': 0},
+        'overestimation': {'lidar': 0, 'throughput': 0, 'final': 0},
+        'extreme_actual_times': {'short': 0, 'long': 0}
+    }
+    
+    # Object count bins
+    object_bins = {
+        '1-10': [], '11-20': [], '21-30': [], 
+        '31-40': [], '41-50': [], '50+': []
+    }
+    
+    # Process each record
+    for row in data:
+        # Calculate errors
+        lidar_err = row['lidarEstTime'] - row['actualPassTime']
+        throughput_err = row['throughputEstTime'] - row['actualPassTime']
+        final_err = row['finalEstTime'] - row['actualPassTime']
+        
+        lidar_errors.append(lidar_err)
+        throughput_errors.append(throughput_err)
+        final_errors.append(final_err)
+        
+        lidar_abs_errors.append(abs(lidar_err))
+        throughput_abs_errors.append(abs(throughput_err))
+        final_abs_errors.append(abs(final_err))
+        
+        # Percentage errors
+        if row['actualPassTime'] > 0:
+            lidar_pct_errors.append((lidar_err / row['actualPassTime']) * 100)
+            throughput_pct_errors.append((throughput_err / row['actualPassTime']) * 100)
+            final_pct_errors.append((final_err / row['actualPassTime']) * 100)
+        
+        # Collect data
+        object_counts.append(row['objectCount'])
+        actual_times.append(row['actualPassTime'])
+        zones.add(row['zone_id'])
+        dates.add(row['date'])
+        
+        # Group by zone
+        zone_data[row['zone_id']].append({
+            'lidar_abs_err': abs(lidar_err),
+            'throughput_abs_err': abs(throughput_err),
+            'final_abs_err': abs(final_err),
+            'lidar_pct_err': (lidar_err / row['actualPassTime']) * 100 if row['actualPassTime'] > 0 else 0,
+            'throughput_pct_err': (throughput_err / row['actualPassTime']) * 100 if row['actualPassTime'] > 0 else 0,
+            'final_pct_err': (final_err / row['actualPassTime']) * 100 if row['actualPassTime'] > 0 else 0,
+            'objectCount': row['objectCount'],
+            'actualPassTime': row['actualPassTime']
+        })
+        
+        # Group by date
+        date_data[row['date']].append({
+            'lidar_abs_err': abs(lidar_err),
+            'throughput_abs_err': abs(throughput_err),
+            'final_abs_err': abs(final_err),
+            'lidar_pct_err': (lidar_err / row['actualPassTime']) * 100 if row['actualPassTime'] > 0 else 0,
+            'throughput_pct_err': (throughput_err / row['actualPassTime']) * 100 if row['actualPassTime'] > 0 else 0,
+            'final_pct_err': (final_err / row['actualPassTime']) * 100 if row['actualPassTime'] > 0 else 0,
+            'objectCount': row['objectCount']
+        })
+        
+        # Object count bins
+        obj_count = row['objectCount']
+        if obj_count <= 10:
+            bin_key = '1-10'
+        elif obj_count <= 20:
+            bin_key = '11-20'
+        elif obj_count <= 30:
+            bin_key = '21-30'
+        elif obj_count <= 40:
+            bin_key = '31-40'
+        elif obj_count <= 50:
+            bin_key = '41-50'
+        else:
+            bin_key = '50+'
+        
+        object_bins[bin_key].append({
+            'actual_time': row['actualPassTime'],
+            'lidar_abs_err': abs(lidar_err),
+            'throughput_abs_err': abs(throughput_err),
+            'final_abs_err': abs(final_err)
+        })
+        
+        # Track issues
+        if abs(lidar_err) > 100:
+            issues['high_error_cases']['lidar'] += 1
+        if abs(throughput_err) > 100:
+            issues['high_error_cases']['throughput'] += 1
+        if abs(final_err) > 100:
+            issues['high_error_cases']['final'] += 1
+        
+        if lidar_err < -30:
+            issues['underestimation']['lidar'] += 1
+        if throughput_err < -30:
+            issues['underestimation']['throughput'] += 1
+        if final_err < -30:
+            issues['underestimation']['final'] += 1
+        
+        if lidar_err > 50:
+            issues['overestimation']['lidar'] += 1
+        if throughput_err > 50:
+            issues['overestimation']['throughput'] += 1
+        if final_err > 50:
+            issues['overestimation']['final'] += 1
+        
+        if row['actualPassTime'] < 40:
+            issues['extreme_actual_times']['short'] += 1
+        if row['actualPassTime'] > 500:
+            issues['extreme_actual_times']['long'] += 1
+    
+    # Calculate timestamps
+    timestamps = [datetime.strptime(row['timestamp'], '%Y-%m-%d %H:%M:%S') for row in data]
+    min_time = min(timestamps)
+    max_time = max(timestamps)
+    
+    # Build results
+    results = {
+        'summary': {
+            'total_records': len(data),
+            'date_range': {
+                'start': min_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'end': max_time.strftime('%Y-%m-%d %H:%M:%S')
+            },
+            'zone_coverage': {
+                'unique_zones': sorted(list(zones)),
+                'total_zones': len(zones)
+            },
+            'object_count_stats': calculate_statistics(object_counts),
+            'actual_pass_time_stats': calculate_statistics(actual_times)
+        },
+        'accuracy': {
+            'lidarEstTime': {
+                'mean_error': sum(lidar_errors) / len(lidar_errors),
+                'mae': sum(lidar_abs_errors) / len(lidar_abs_errors),
+                'rmse': math.sqrt(sum(e**2 for e in lidar_errors) / len(lidar_errors)),
+                'median_error': calculate_statistics(lidar_errors)['median'],
+                'median_abs_error': calculate_statistics(lidar_abs_errors)['median'],
+                'mean_pct_error': sum(lidar_pct_errors) / len(lidar_pct_errors),
+                'std_error': calculate_statistics(lidar_errors)['std']
+            },
+            'throughputEstTime': {
+                'mean_error': sum(throughput_errors) / len(throughput_errors),
+                'mae': sum(throughput_abs_errors) / len(throughput_abs_errors),
+                'rmse': math.sqrt(sum(e**2 for e in throughput_errors) / len(throughput_errors)),
+                'median_error': calculate_statistics(throughput_errors)['median'],
+                'median_abs_error': calculate_statistics(throughput_abs_errors)['median'],
+                'mean_pct_error': sum(throughput_pct_errors) / len(throughput_pct_errors),
+                'std_error': calculate_statistics(throughput_errors)['std']
+            },
+            'finalEstTime': {
+                'mean_error': sum(final_errors) / len(final_errors),
+                'mae': sum(final_abs_errors) / len(final_abs_errors),
+                'rmse': math.sqrt(sum(e**2 for e in final_errors) / len(final_errors)),
+                'median_error': calculate_statistics(final_errors)['median'],
+                'median_abs_error': calculate_statistics(final_abs_errors)['median'],
+                'mean_pct_error': sum(final_pct_errors) / len(final_pct_errors),
+                'std_error': calculate_statistics(final_errors)['std']
+            }
+        },
+        'by_zone': {},
+        'by_date': {},
+        'issues': issues,
+        'correlation': {}
+    }
+    
+    # Analyze by zone
+    for zone_id, records in zone_data.items():
+        results['by_zone'][int(zone_id)] = {
+            'record_count': len(records),
+            'avg_object_count': sum(r['objectCount'] for r in records) / len(records),
+            'avg_actual_pass_time': sum(r['actualPassTime'] for r in records) / len(records),
+            'lidar_mae': sum(r['lidar_abs_err'] for r in records) / len(records),
+            'throughput_mae': sum(r['throughput_abs_err'] for r in records) / len(records),
+            'final_mae': sum(r['final_abs_err'] for r in records) / len(records),
+            'lidar_mean_pct_error': sum(r['lidar_pct_err'] for r in records) / len(records),
+            'throughput_mean_pct_error': sum(r['throughput_pct_err'] for r in records) / len(records),
+            'final_mean_pct_error': sum(r['final_pct_err'] for r in records) / len(records)
+        }
+    
+    # Analyze by date
+    for date, records in date_data.items():
+        results['by_date'][date] = {
+            'record_count': len(records),
+            'avg_object_count': sum(r['objectCount'] for r in records) / len(records),
+            'lidar_mae': sum(r['lidar_abs_err'] for r in records) / len(records),
+            'throughput_mae': sum(r['throughput_abs_err'] for r in records) / len(records),
+            'final_mae': sum(r['final_abs_err'] for r in records) / len(records),
+            'lidar_mean_pct_error': sum(r['lidar_pct_err'] for r in records) / len(records),
+            'throughput_mean_pct_error': sum(r['throughput_pct_err'] for r in records) / len(records),
+            'final_mean_pct_error': sum(r['final_pct_err'] for r in records) / len(records)
+        }
+    
+    # Analyze correlation with object count
+    for bin_key, records in object_bins.items():
+        if records:
+            results['correlation'][bin_key] = {
+                'count': len(records),
+                'avg_actual_time': sum(r['actual_time'] for r in records) / len(records),
+                'lidar_mae': sum(r['lidar_abs_err'] for r in records) / len(records),
+                'throughput_mae': sum(r['throughput_abs_err'] for r in records) / len(records),
+                'final_mae': sum(r['final_abs_err'] for r in records) / len(records)
+            }
+    
+    return results
+
+def main():
+    print("=== 대기열 예상시간 알고리즘 로그 분석 (이상치 필터링) ===\n")
+    
+    # Load data
+    all_data = load_all_logs()
+    
+    # Analyze original data
+    print("\n--- 원본 데이터 분석 ---")
+    results_original = analyze_logs(all_data)
+    
+    # Filter outliers
+    filtered_data, outlier_stats = filter_outliers(all_data)
+    
+    # Analyze filtered data
+    print("\n--- 필터링된 데이터 분석 ---")
+    results_filtered = analyze_logs(filtered_data)
+    
+    # Combine results
+    combined_results = {
+        'outlier_removal': outlier_stats,
+        'original': results_original,
+        'filtered': results_filtered
+    }
+    
+    # Save to JSON
+    output_file = 'queue_analysis_results_filtered.json'
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(combined_results, f, indent=2, ensure_ascii=False)
+    
+    print(f"\n분석 결과가 {output_file} 에 저장되었습니다.\n")
+    
+    # Print comparison summary
+    print("=== 이상치 제거 전후 비교 ===\n")
+    print("원본 데이터:")
+    print(f"  - LiDAR MAE: {results_original['accuracy']['lidarEstTime']['mae']:.2f} 초")
+    print(f"  - Throughput MAE: {results_original['accuracy']['throughputEstTime']['mae']:.2f} 초")
+    print(f"  - 최종 MAE: {results_original['accuracy']['finalEstTime']['mae']:.2f} 초")
+    print(f"  - LiDAR RMSE: {results_original['accuracy']['lidarEstTime']['rmse']:.2f} 초")
+    
+    print("\n필터링 후:")
+    print(f"  - LiDAR MAE: {results_filtered['accuracy']['lidarEstTime']['mae']:.2f} 초")
+    print(f"  - Throughput MAE: {results_filtered['accuracy']['throughputEstTime']['mae']:.2f} 초")
+    print(f"  - 최종 MAE: {results_filtered['accuracy']['finalEstTime']['mae']:.2f} 초")
+    print(f"  - LiDAR RMSE: {results_filtered['accuracy']['lidarEstTime']['rmse']:.2f} 초")
+    
+    # Calculate improvements
+    lidar_mae_improvement = ((results_original['accuracy']['lidarEstTime']['mae'] - 
+                              results_filtered['accuracy']['lidarEstTime']['mae']) / 
+                             results_original['accuracy']['lidarEstTime']['mae'] * 100)
+    
+    print(f"\n개선율:")
+    print(f"  - LiDAR MAE: {lidar_mae_improvement:.1f}% 개선")
+    
+    return combined_results
+
+if __name__ == "__main__":
+    results = main()
