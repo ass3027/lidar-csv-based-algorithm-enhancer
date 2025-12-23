@@ -22,3 +22,11 @@ Thumbs.db
 # Project specific
 models/
 *.log
+
+# Data files
+csv/
+*.csv
+
+# Analysis results
+*.json
+!package*.json
