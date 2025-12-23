@@ -40,7 +40,7 @@ def print_improvement_summary(improvements):
         print(f"  개선율: {stats['improvement_pct']:.1f}%\n")
 
 
-def main(log_dir='csv', model_dir='models', output_file='enhanced_analysis_results.json'):
+def main(log_dir='../csv', model_dir='models', output_file='enhanced_analysis_results.json'):
     """
     Main analysis pipeline with enhancements
 

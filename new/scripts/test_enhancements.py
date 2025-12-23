@@ -43,7 +43,7 @@ def calculate_over_prediction_rate(records, prediction_field='finalEstTime'):
     return (over_predictions / len(records)) * 100 if records else 0
 
 
-def main(log_dir='csv', model_dir='models'):
+def main(log_dir='../csv', model_dir='models'):
     """Test enhancements on held-out test set"""
 
     print("=== 향상 모델 성능 테스트 ===\n")

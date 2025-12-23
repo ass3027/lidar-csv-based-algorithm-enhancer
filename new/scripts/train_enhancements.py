@@ -42,7 +42,7 @@ def split_train_val_test(data, train_ratio=0.70, val_ratio=0.15):
     return data[:train_end], data[train_end:val_end], data[val_end:]
 
 
-def main(log_dir='csv', output_dir='models'):
+def main(log_dir='../csv', output_dir='models'):
     """
     Main training pipeline
 
