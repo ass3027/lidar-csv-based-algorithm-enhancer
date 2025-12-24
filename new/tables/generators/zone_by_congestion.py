@@ -14,6 +14,8 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
     def generate(self):
         zone_congestion_errors = defaultdict(lambda: defaultdict(list))
         zone_congestion_counts = defaultdict(lambda: defaultdict(int))
+        zone_congestion_predicted = defaultdict(lambda: defaultdict(list))
+        zone_congestion_actual = defaultdict(lambda: defaultdict(list))
 
         for row in self.data:
             zone = row['zone_id']
@@ -22,6 +24,8 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
 
             zone_congestion_errors[zone][congestion].append(error_minutes)
             zone_congestion_counts[zone][congestion] += 1
+            zone_congestion_predicted[zone][congestion].append(row['finalEstTime'])
+            zone_congestion_actual[zone][congestion].append(row['actualPassTime'])
 
         md = ["# Average Error by Zone and Congestion Level\n"]
         md.append("## Congestion Level Definitions\n")
@@ -89,4 +93,65 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
 
         md.extend(self._format_markdown_table(headers, rows[:-2]))
         md.extend(rows[-2:])
+
+        # Add wait time comparison table
+        md.append("\n\n## Average Wait Time Comparison (seconds)\n")
+        md.append("Shows predicted (finalEstTime) vs actual (actualPassTime) wait times\n")
+
+        wait_time_rows = []
+        for zone in zones:
+            row_data = [f"**Zone {zone}**"]
+
+            for level in congestion_levels:
+                predicted = zone_congestion_predicted[zone][level]
+                actual = zone_congestion_actual[zone][level]
+
+                if predicted and actual:
+                    avg_pred = statistics.mean(predicted)
+                    avg_actual = statistics.mean(actual)
+                    row_data.append(f"{avg_pred:.0f} / {avg_actual:.0f}")
+                else:
+                    row_data.append("-")
+
+            # Overall average for the zone
+            zone_all_predicted = list(chain(*zone_congestion_predicted[zone].values()))
+            zone_all_actual = list(chain(*zone_congestion_actual[zone].values()))
+            if zone_all_predicted and zone_all_actual:
+                avg_pred = statistics.mean(zone_all_predicted)
+                avg_actual = statistics.mean(zone_all_actual)
+                row_data.append(f"**{avg_pred:.0f} / {avg_actual:.0f}**")
+            else:
+                row_data.append("-")
+
+            wait_time_rows.append("| " + " | ".join(row_data) + " |")
+
+        # Add overall averages row
+        wait_time_rows.append("|---|" + "---|" * (len(congestion_levels) + 1))
+        overall_row = ["**Overall**"]
+
+        for level in congestion_levels:
+            all_predicted = list(chain(*(zone_congestion_predicted[z][level] for z in zones)))
+            all_actual = list(chain(*(zone_congestion_actual[z][level] for z in zones)))
+            if all_predicted and all_actual:
+                avg_pred = statistics.mean(all_predicted)
+                avg_actual = statistics.mean(all_actual)
+                overall_row.append(f"**{avg_pred:.0f} / {avg_actual:.0f}**")
+            else:
+                overall_row.append("-")
+
+        # Grand overall
+        grand_predicted = list(chain(*(chain(*d.values()) for d in zone_congestion_predicted.values())))
+        grand_actual = list(chain(*(chain(*d.values()) for d in zone_congestion_actual.values())))
+        if grand_predicted and grand_actual:
+            avg_pred = statistics.mean(grand_predicted)
+            avg_actual = statistics.mean(grand_actual)
+            overall_row.append(f"**{avg_pred:.0f} / {avg_actual:.0f}**")
+        else:
+            overall_row.append("-")
+
+        wait_time_rows.append("| " + " | ".join(overall_row) + " |")
+
+        md.extend(self._format_markdown_table(headers, wait_time_rows[:-2]))
+        md.extend(wait_time_rows[-2:])
+
         return "\n".join(md)
