@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-향상 모델 훈련 스크립트
+Enhancement Model Training Script
 Train time-of-day and queue growth enhancement models
 
 Usage:
@@ -42,7 +42,7 @@ def split_train_val_test(data, train_ratio=0.70, val_ratio=0.15):
     return data[:train_end], data[train_end:val_end], data[val_end:]
 
 
-def main(log_dir='../csv', output_dir='models'):
+def main(log_dir, output_dir):
     """
     Main training pipeline
 
@@ -50,7 +50,7 @@ def main(log_dir='../csv', output_dir='models'):
         log_dir: Directory containing CSV files
         output_dir: Directory to save trained models
     """
-    print("=== 향상 모델 훈련 파이프라인 ===\n")
+    print("=== Enhancement Model Training Pipeline ===\n")
 
     # Create output directory
     Path(output_dir).mkdir(exist_ok=True)
@@ -59,19 +59,19 @@ def main(log_dir='../csv', output_dir='models'):
     all_data = load_all_logs(log_dir)
 
     if not all_data:
-        print("\n오류: 데이터를 로드할 수 없습니다.")
+        print("\nError: Could not load data.")
         return
 
     # Filter outliers
     filtered_data, outlier_stats = filter_outliers(all_data)
 
     # Split data
-    print(f"\n데이터 분할 중...")
+    print(f"\nSplitting data...")
     train_data, val_data, test_data = split_train_val_test(filtered_data)
 
-    print(f"  학습 데이터: {len(train_data):,} 건 (70%)")
-    print(f"  검증 데이터: {len(val_data):,} 건 (15%)")
-    print(f"  테스트 데이터: {len(test_data):,} 건 (15%)")
+    print(f"  Training data: {len(train_data):,} records (70%)")
+    print(f"  Validation data: {len(val_data):,} records (15%)")
+    print(f"  Test data: {len(test_data):,} records (15%)")
 
     # Train enhancements
     training_stats = train_all_enhancements(train_data, output_dir)
@@ -89,13 +89,21 @@ def main(log_dir='../csv', output_dir='models'):
     with open(f'{output_dir}/training_info.json', 'w', encoding='utf-8') as f:
         json.dump(split_info, f, indent=2, ensure_ascii=False)
 
-    print(f"\n훈련 완료! 모델이 '{output_dir}/' 디렉토리에 저장되었습니다.")
+    print(f"\nTraining complete! Models saved in '{output_dir}/' directory.")
     print(f"  - time_of_day_factors.json")
     print(f"  - queue_growth_factors.json")
     print(f"  - training_info.json")
 
 
 if __name__ == '__main__':
-    log_dir = sys.argv[1] if len(sys.argv) > 1 else 'csv'
-    output_dir = sys.argv[2] if len(sys.argv) > 2 else 'models'
+    project_root = Path(__file__).parent.parent.parent
+    
+    # Use command-line arguments if provided, otherwise use defaults relative to project root
+    log_dir_arg = sys.argv[1] if len(sys.argv) > 1 else "csv"
+    output_dir_arg = sys.argv[2] if len(sys.argv) > 2 else "models"
+
+    # Resolve paths
+    log_dir = project_root / log_dir_arg
+    output_dir = project_root / output_dir_arg
+    
     main(log_dir, output_dir)

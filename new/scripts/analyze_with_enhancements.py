@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-향상된 알고리즘 분석 스크립트
+Enhanced Algorithm Analysis Script
 Analyze queue logs with time-of-day and queue growth enhancements
 
 Usage:
@@ -25,22 +25,22 @@ from new.core.enhanced_analysis_engine import analyze_with_enhancements
 
 def print_improvement_summary(improvements):
     """Print improvement statistics"""
-    print("\n=== 개선 효과 ===\n")
+    print("\n=== Improvement Effect ===\n")
 
     algorithm_display = {
         'lidarEstTime': 'LiDAR',
         'throughputEstTime': 'Throughput',
-        'finalEstTime': '최종 (Final)'
+        'finalEstTime': 'Final'
     }
 
     for alg_name, stats in improvements.items():
         print(f"{algorithm_display[alg_name]}:")
-        print(f"  원본 MAE: {stats['original_mae']:.2f} 초")
-        print(f"  향상 MAE: {stats['enhanced_mae']:.2f} 초")
-        print(f"  개선율: {stats['improvement_pct']:.1f}%\n")
+        print(f"  Original MAE: {stats['original_mae']:.2f} seconds")
+        print(f"  Enhanced MAE: {stats['enhanced_mae']:.2f} seconds")
+        print(f"  Improvement Rate: {stats['improvement_pct']:.1f}%\n")
 
 
-def main(log_dir='../csv', model_dir='models', output_file='enhanced_analysis_results.json'):
+def main(log_dir, model_dir, output_file):
     """
     Main analysis pipeline with enhancements
 
@@ -49,13 +49,13 @@ def main(log_dir='../csv', model_dir='models', output_file='enhanced_analysis_re
         model_dir: Directory containing trained models
         output_file: Output JSON file path
     """
-    print("=== 향상된 알고리즘 분석 파이프라인 ===\n")
+    print("=== Enhanced Algorithm Analysis Pipeline ===\n")
 
     # Load data
     all_data = load_all_logs(log_dir)
 
     if not all_data:
-        print("\n오류: 데이터를 로드할 수 없습니다.")
+        print("\nError: Could not load data.")
         return
 
     # Filter outliers
@@ -71,14 +71,21 @@ def main(log_dir='../csv', model_dir='models', output_file='enhanced_analysis_re
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
-    print(f"\n분석 결과가 {output_file} 에 저장되었습니다.")
+    print(f"\nAnalysis results have been saved to {output_file}.")
 
     # Print summary
     print_improvement_summary(results['improvements'])
 
 
 if __name__ == '__main__':
-    log_dir = sys.argv[1] if len(sys.argv) > 1 else 'csv'
-    model_dir = sys.argv[2] if len(sys.argv) > 2 else 'models'
-    output_file = sys.argv[3] if len(sys.argv) > 3 else 'enhanced_analysis_results.json'
+    project_root = Path(__file__).parent.parent.parent
+
+    log_dir_arg = sys.argv[1] if len(sys.argv) > 1 else "csv"
+    model_dir_arg = sys.argv[2] if len(sys.argv) > 2 else "models"
+    output_file_arg = sys.argv[3] if len(sys.argv) > 3 else "enhanced_analysis_results.json"
+
+    log_dir = project_root / log_dir_arg
+    model_dir = project_root / model_dir_arg
+    output_file = project_root / output_file_arg
+
     main(log_dir, model_dir, output_file)
