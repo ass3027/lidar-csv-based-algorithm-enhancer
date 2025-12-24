@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""데이터 로딩 모듈 - CSV loading module supporting both old and new formats"""
+"""CSV loading module supporting both old and new formats"""
 
 import csv
 from pathlib import Path
+from datetime import datetime, timedelta
 from ..utils.outlier_detection import detect_outliers_iqr
 
 
@@ -33,20 +34,40 @@ def _parse_time_to_seconds(time_str):
         return 0
 
 
-def _parse_old_format_row(row):
+def _parse_old_format_row(row, date_str):
     """
-    Parse old CSV format (with header, 7 columns)
+    Parse old CSV format and adapt to the new format structure.
 
-    Format: timestamp,zone_id,objectCount,lidarEstTime,throughputEstTime,finalEstTime,actualPassTime
+    Old Format: timestamp,zone_id,objectCount,lidarEstTime,throughputEstTime,finalEstTime,actualPassTime
+    New Structure: timestamp,zone_id,objectCount,inTime,outTime,actualPassTime,lidarEstTime,throughputEstTime,finalEstTime
     """
+    # Basic data extraction and type conversion
+    actual_pass_time_seconds = int(row['actualPassTime'])
+    timestamp_str = row['timestamp']
+    
+    # Create datetime object from timestamp
+    try:
+        timestamp_dt = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return None  # Skip row if timestamp is malformed
+
+    # Calculate inTime and outTime
+    out_time_dt = timestamp_dt
+    in_time_dt = out_time_dt - timedelta(seconds=actual_pass_time_seconds)
+
     return {
-        'timestamp': row['timestamp'],
+        'timestamp': timestamp_str,
+        'object_id': None,  # Old format does not have object_id
         'zone_id': int(row['zone_id']),
         'objectCount': int(row['objectCount']),
+        'inTime': in_time_dt.strftime('%H:%M:%S'),
+        'outTime': out_time_dt.strftime('%H:%M:%S'),
+        'actualPassTime': actual_pass_time_seconds,
         'lidarEstTime': float(row['lidarEstTime']),
         'throughputEstTime': float(row['throughputEstTime']),
         'finalEstTime': float(row['finalEstTime']),
-        'actualPassTime': int(row['actualPassTime'])
+        'actualPassTime_str': f"{actual_pass_time_seconds // 60:02d}:{actual_pass_time_seconds % 60:02d}",
+        'date': date_str
     }
 
 
@@ -105,7 +126,7 @@ def _parse_new_format_row(row_values, date_str):
     }
 
 
-def load_all_logs(log_dir="csv", format_hint=None):
+def load_all_logs(log_dir="../csv", format_hint=None):
     """
     Load all queue log CSV files from directory
 
@@ -122,17 +143,17 @@ def load_all_logs(log_dir="csv", format_hint=None):
     all_data = []
 
     if not log_path.exists():
-        print(f"경고: 디렉토리 '{log_dir}'를 찾을 수 없습니다.")
+        print(f"Warning: Directory '{log_dir}' not found.")
         return all_data
 
     csv_files = sorted(log_path.glob("passingObject_*.csv"))
 
     if not csv_files:
-        print(f"경고: '{log_dir}' 디렉토리에 CSV 파일이 없습니다.")
+        print(f"Warning: No CSV files found in '{log_dir}' directory.")
         return all_data
 
     for csv_file in csv_files:
-        print(f"로딩중: {csv_file.name}...")
+        print(f"Loading: {csv_file.name}...")
         date_str = csv_file.stem.replace('passingObject_', '')
 
         with open(csv_file, 'r', encoding='utf-8') as f:
@@ -155,9 +176,9 @@ def load_all_logs(log_dir="csv", format_hint=None):
                 reader_dict = csv.DictReader(f)
                 for row in reader_dict:
                     try:
-                        parsed_row = _parse_old_format_row(row)
-                        parsed_row['date'] = date_str
-                        all_data.append(parsed_row)
+                        parsed_row = _parse_old_format_row(row, date_str)
+                        if parsed_row:
+                            all_data.append(parsed_row)
                     except (ValueError, KeyError):
                         continue
             else:
@@ -180,7 +201,7 @@ def load_all_logs(log_dir="csv", format_hint=None):
                     except (ValueError, IndexError):
                         continue
 
-    print(f"총 {len(all_data):,}건의 레코드를 로드했습니다.")
+    print(f"Loaded a total of {len(all_data):,} records.")
     return all_data
 
 
@@ -194,7 +215,7 @@ def filter_outliers(data):
     Returns:
         tuple: (filtered_data, outlier_stats)
     """
-    print("\n이상치 탐지 중...")
+    print("\nDetecting outliers...")
 
     error_extractors = {
         'actual_time': lambda r: r['actualPassTime'],
@@ -217,7 +238,7 @@ def filter_outliers(data):
 
     total_count = len(data)
     removed_count = len(all_outlier_indices)
-    removal_rate = (removed_count / total_count) * 100
+    removal_rate = (removed_count / total_count) * 100 if total_count > 0 else 0
 
     outlier_stats = {
         'total_records': total_count,
@@ -227,8 +248,8 @@ def filter_outliers(data):
         'outliers_by_type': {name: len(indices) for name, indices in outlier_sets.items()}
     }
 
-    print(f"  총 레코드: {total_count:,} 건")
-    print(f"  제거된 레코드: {removed_count:,} 건 ({removal_rate:.1f}%)")
-    print(f"  필터링 후: {len(filtered_data):,} 건")
+    print(f"  Total records: {total_count:,}")
+    print(f"  Removed records: {removed_count:,} ({removal_rate:.1f}%)")
+    print(f"  Records after filtering: {len(filtered_data):,}")
 
     return filtered_data, outlier_stats
