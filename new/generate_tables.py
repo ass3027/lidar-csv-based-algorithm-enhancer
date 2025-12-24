@@ -26,17 +26,12 @@ sys.path.insert(0, str(project_root))
 from new.tables.table_data_loader import load_and_process_data
 
 from new.tables.table_generators import (
-
     generate_zone_by_day_table,
-
     generate_zone_by_queue_table,
-
+    generate_zone_by_congestion_table,
     generate_queue_by_day_table,
-
     generate_sample_count_table,
-
     generate_summary_statistics_table,
-
 )
 
 
@@ -82,6 +77,7 @@ def main(data_dir):
     print("Generating tables...")
     zone_by_day_table = generate_zone_by_day_table(data)
     zone_by_queue_table = generate_zone_by_queue_table(data)
+    zone_by_congestion_table = generate_zone_by_congestion_table(data)
     queue_by_day_table = generate_queue_by_day_table(data)
     sample_count_table = generate_sample_count_table(data)
     summary_stats_table = generate_summary_statistics_table(data)
@@ -90,6 +86,7 @@ def main(data_dir):
     full_report = (
         f"{zone_by_day_table}\n\n"
         f"{zone_by_queue_table}\n\n"
+        f"{zone_by_congestion_table}\n\n"
         f"{queue_by_day_table}\n\n"
         f"{sample_count_table}\n\n"
         f"{summary_stats_table}"
