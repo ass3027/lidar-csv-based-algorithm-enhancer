@@ -27,7 +27,7 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
             zone_congestion_predicted[zone][congestion].append(row['finalEstTime'])
             zone_congestion_actual[zone][congestion].append(row['actualPassTime'])
 
-        md = ["# Average Error by Zone and Congestion Level\n"]
+        md = ["# Zone by Congestion Level Analysis\n"]
         md.append("## Congestion Level Definitions\n")
 
         congestion_levels = get_congestion_bins()
@@ -41,7 +41,8 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         for level in congestion_levels:
             md.append(f"- **{level}**: {ranges['security'][level]}")
 
-        md.append("\n## Average Error (minutes) - Positive: Over-estimation, Negative: Under-estimation\n")
+        md.append("\n## 1. Average Error by Zone and Congestion Level\n")
+        md.append("**Average Error (minutes)** - Positive: Over-estimation, Negative: Under-estimation\n")
 
         zones = sorted(zone_congestion_errors.keys())
         headers = ['Zone'] + congestion_levels + ['Average']
@@ -95,8 +96,8 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         md.extend(rows[-2:])
 
         # Add wait time comparison table
-        md.append("\n\n## Average Wait Time Comparison (seconds)\n")
-        md.append("Shows predicted (finalEstTime) vs actual (actualPassTime) wait times\n")
+        md.append("\n\n## 2. Average Wait Time Comparison\n")
+        md.append("**Format:** Predicted / Actual (seconds) - Shows finalEstTime vs actualPassTime\n")
 
         wait_time_rows = []
         for zone in zones:
