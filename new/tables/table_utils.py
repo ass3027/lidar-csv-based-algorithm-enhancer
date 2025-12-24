@@ -1,12 +1,22 @@
 #!/usr/bin/env python3
-"""테이블 유틸리티 모듈 - Utility functions for table generation"""
+"""Utility functions for table generation"""
 
 import statistics
+from datetime import datetime
 
 
-def get_day_of_week(timestamp):
-    days_korean = ['월', '화', '수', '목', '금', '토', '일']
-    return days_korean[timestamp.weekday()]
+def get_day_of_week(timestamp_str):
+    """
+    Get the day of the week from a timestamp string.
+    """
+    try:
+        # Parse the timestamp string
+        timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+        # English day names
+        days_english = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        return days_english[timestamp.weekday()]
+    except (ValueError, TypeError):
+        return "Invalid Day"
 
 
 def categorize_queue_size(count):
@@ -23,7 +33,10 @@ def categorize_queue_size(count):
 
 def calculate_stats(errors):
     if not errors:
-        return None
+        return {
+            'count': 0, 'mean': 0, 'median': 0, 'std': 0,
+            'early_count': 0, 'late_count': 0
+        }
 
     return {
         'count': len(errors),
