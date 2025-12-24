@@ -285,7 +285,7 @@ for row in data:
 from new.core.data_loader import load_all_logs
 
 # Force old format parsing
-old_data = load_all_logs('legacy_csv/', format_hint='old')
+old_data = load_all_logs('csv_legacy/', format_hint='old')
 
 # Force new format parsing
 new_data = load_all_logs('new_csv/', format_hint='new')

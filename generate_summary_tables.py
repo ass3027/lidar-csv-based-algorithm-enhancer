@@ -355,7 +355,7 @@ def main():
     tables.append(generate_summary_statistics_table(data))
     
     # Write to file
-    output_file = 'queue_analysis_summary_tables.md'
+    output_file = 'queue_analysis_summary_tables_20251223.md'
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write('\n'.join(tables))
     

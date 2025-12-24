@@ -137,7 +137,7 @@ from scripts.generate_summary_tables_modular import main
 
 if __name__ == '__main__':
     data_dir = sys.argv[1] if len(sys.argv) > 1 else 'passing_log'
-    output_file = sys.argv[2] if len(sys.argv) > 2 else 'queue_analysis_summary_tables.md'
+    output_file = sys.argv[2] if len(sys.argv) > 2 else 'queue_analysis_summary_tables_20251223.md'
     main(data_dir, output_file)
 ```
 
