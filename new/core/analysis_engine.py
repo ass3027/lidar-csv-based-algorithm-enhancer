@@ -63,19 +63,26 @@ def _track_issue_thresholds(errors, issues):
 
 
 def _build_accuracy_metrics(errors, abs_errors, pct_errors):
+    if not errors:
+        return {
+            'mean_error': 0, 'mae': 0, 'rmse': 0, 'median_error': 0,
+            'median_abs_error': 0, 'mean_pct_error': 0, 'std_error': 0
+        }
     return {
         'mean_error': sum(errors) / len(errors),
         'mae': sum(abs_errors) / len(abs_errors),
         'rmse': math.sqrt(sum(e**2 for e in errors) / len(errors)),
         'median_error': calculate_statistics(errors)['median'],
         'median_abs_error': calculate_statistics(abs_errors)['median'],
-        'mean_pct_error': sum(pct_errors) / len(pct_errors),
+        'mean_pct_error': sum(pct_errors) / len(pct_errors) if pct_errors else 0,
         'std_error': calculate_statistics(errors)['std']
     }
 
 
 def _aggregate_zone_metrics(records):
     num_records = len(records)
+    if num_records == 0:
+        return {}
     return {
         'record_count': num_records,
         'avg_object_count': sum(r['objectCount'] for r in records) / num_records,
@@ -91,6 +98,8 @@ def _aggregate_zone_metrics(records):
 
 def _aggregate_date_metrics(records):
     num_records = len(records)
+    if num_records == 0:
+        return {}
     return {
         'record_count': num_records,
         'avg_object_count': sum(r['objectCount'] for r in records) / num_records,
@@ -105,6 +114,8 @@ def _aggregate_date_metrics(records):
 
 def _aggregate_correlation_metrics(records):
     num_records = len(records)
+    if num_records == 0:
+        return {}
     return {
         'count': num_records,
         'avg_actual_time': sum(r['actual_time'] for r in records) / num_records,
@@ -141,6 +152,8 @@ def analyze_logs(data):
     object_bins = defaultdict(list)
 
     for row in data:
+        if row is None:
+            continue
         lidar_err = row['lidarEstTime'] - row['actualPassTime']
         throughput_err = row['throughputEstTime'] - row['actualPassTime']
         final_err = row['finalEstTime'] - row['actualPassTime']
@@ -191,17 +204,18 @@ def analyze_logs(data):
             issues['extreme_actual_times']['short'] += 1
         if actual_pass_time > LONG_TIME_THRESHOLD:
             issues['extreme_actual_times']['long'] += 1
-
-    timestamps = [datetime.strptime(row['timestamp'], '%Y-%m-%d %H:%M:%S') for row in data]
-    min_time = min(timestamps)
-    max_time = max(timestamps)
+    
+    non_empty_data = [row for row in data if row and row.get('timestamp')]
+    timestamps = [datetime.strptime(row['timestamp'], '%Y-%m-%d %H:%M:%S') for row in non_empty_data]
+    min_time = min(timestamps) if timestamps else None
+    max_time = max(timestamps) if timestamps else None
 
     results = {
         'summary': {
             'total_records': len(data),
             'date_range': {
-                'start': min_time.strftime('%Y-%m-%d %H:%M:%S'),
-                'end': max_time.strftime('%Y-%m-%d %H:%M:%S')
+                'start': min_time.strftime('%Y-%m-%d %H:%M:%S') if min_time else 'N/A',
+                'end': max_time.strftime('%Y-%m-%d %H:%M:%S') if max_time else 'N/A'
             },
             'zone_coverage': {
                 'unique_zones': sorted(list(zones)),
