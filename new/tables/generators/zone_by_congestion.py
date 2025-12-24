@@ -5,7 +5,7 @@ import statistics
 from itertools import chain
 from collections import defaultdict
 from .base import BaseTableGenerator
-from ...utils.congestion_utils import get_congestion_level, get_congestion_bins, get_congestion_range
+from ...utils.congestion_utils import get_congestion_level, get_congestion_bins, get_congestion_ranges_for_all_groups
 
 
 class ZoneByCongestionTableGenerator(BaseTableGenerator):
@@ -27,8 +27,15 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         md.append("## Congestion Level Definitions\n")
 
         congestion_levels = get_congestion_bins()
+        ranges = get_congestion_ranges_for_all_groups()
+
+        md.append("### Identity Zones (1-3)\n")
         for level in congestion_levels:
-            md.append(f"- **{level}**: {get_congestion_range(level)}")
+            md.append(f"- **{level}**: {ranges['identity'][level]}")
+
+        md.append("\n### Security Zones (4-17)\n")
+        for level in congestion_levels:
+            md.append(f"- **{level}**: {ranges['security'][level]}")
 
         md.append("\n## Average Error (minutes) - Positive: Over-estimation, Negative: Under-estimation\n")
 

@@ -118,6 +118,6 @@ if __name__ == '__main__':
     data_dir_arg = sys.argv[1] if len(sys.argv) > 1 else "csv"
 
     # Resolve paths
-    data_dir = project_root / data_dir_arg
+    _data_dir = project_root / data_dir_arg
 
-    main(data_dir)
+    main(_data_dir)
