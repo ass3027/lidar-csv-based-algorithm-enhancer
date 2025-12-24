@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""보정 계수 훈련 - Train all enhancement modules on historical data"""
+"""Train all enhancement modules on historical data"""
 
 import json
 from .time_of_day_enhancer import TimeOfDayEnhancer
@@ -17,21 +17,21 @@ def train_all_enhancements(train_records, output_dir='models'):
     Returns:
         dict: Training statistics
     """
-    print("\n=== 시간대별 보정 계수 학습 ===")
+    print("\n=== Training Time-of-Day Adjustment Factors ===")
     tod_enhancer = TimeOfDayEnhancer()
     tod_stats = tod_enhancer.fit(train_records)
     tod_enhancer.save(f'{output_dir}/time_of_day_factors.json')
 
-    print(f"  학습 완료: {tod_stats['total_records']:,} 건")
-    print(f"  데이터 있는 시간대: {tod_stats['hours_with_data']} / 24")
+    print(f"  Training complete: {tod_stats['total_records']:,} records")
+    print(f"  Hours with data: {tod_stats['hours_with_data']} / 24")
 
-    print("\n=== 대기열 변화율 탐지 학습 ===")
+    print("\n=== Training Queue Growth Rate Detection ===")
     qg_detector = QueueGrowthDetector(window_minutes=5)
     qg_stats = qg_detector.fit(sorted(train_records, key=lambda r: r['timestamp']))
     qg_detector.save(f'{output_dir}/queue_growth_factors.json')
 
-    print(f"  학습 완료: {qg_stats['total_windows']:,} 개 시간 윈도우")
-    print(f"  윈도우 크기: {qg_stats['window_minutes']} 분")
+    print(f"  Training complete: {qg_stats['total_windows']:,} time windows")
+    print(f"  Window size: {qg_stats['window_minutes']} minutes")
 
     return {
         'time_of_day': tod_stats,
