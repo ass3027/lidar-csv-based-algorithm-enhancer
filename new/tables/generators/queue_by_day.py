@@ -23,7 +23,7 @@ class QueueByDayTableGenerator(BaseTableGenerator):
         queue_cats = sorted(queue_day_errors.keys(), key=lambda x: int(x.split('-')[0]))
 
         md = ["\n\n# 대기인원별 요일별 평균 오차\n"]
-        md.append("## 평균 오차 (분) - +: 과대추정, -: 과소추정\n")
+        md.append("## 평균 오차 (분) | +: 과대추정, -: 과소추정\n")
 
         headers = ['대기인원'] + self.days + ['평균']
         rows = []

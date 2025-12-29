@@ -10,7 +10,7 @@ class SummaryStatisticsTableGenerator(BaseTableGenerator):
     """Generate comprehensive summary statistics by multiple dimensions"""
 
     def generate(self):
-        md = ["\n\n# 차원별 요약 통계\n"]
+        md = ["\n\n# 요약 통계\n"]
 
         # Statistics by Zone
         md.extend(self._generate_zone_statistics())
