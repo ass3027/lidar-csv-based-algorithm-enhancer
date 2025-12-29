@@ -18,14 +18,12 @@ class SampleCountTableGenerator(BaseTableGenerator):
             day = self.day_mapping.get(day_eng, day_eng)
             zone_day_counts[zone][day] += 1
 
-        zones = sorted(zone_day_counts.keys())
-
         md = ["\n\n# 구역별 요일별 샘플 수\n"]
 
         headers = ['구역'] + self.days + ['합계']
         rows = []
 
-        for zone in zones:
+        for zone in self.all_zones:
             zone_name = self.zone_name_dict.get(zone, f'구역 {zone}')
             row_data = [f"**{zone_name}**"]
             zone_total = 0
@@ -45,7 +43,7 @@ class SampleCountTableGenerator(BaseTableGenerator):
         total_row_data = ["**전체**"]
         grand_total = 0
         for day in self.days:
-            day_total = sum(zone_day_counts[zone][day] for zone in zones)
+            day_total = sum(zone_day_counts[zone][day] for zone in self.all_zones)
             total_row_data.append(f"**{day_total:,}**")
             grand_total += day_total
         total_row_data.append(f"**{grand_total:,}**")

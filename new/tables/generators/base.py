@@ -12,6 +12,7 @@ class BaseTableGenerator:
             'Mon': '월', 'Tue': '화', 'Wed': '수', 'Thu': '목',
             'Fri': '금', 'Sat': '토', 'Sun': '일'
         }
+        self.all_zones = list(range(1, 18))  # Zones 1-17
         self.zone_name_dict = {
             1: '유인신분확인',
             2: '우선신분확인',

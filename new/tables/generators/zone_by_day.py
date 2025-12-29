@@ -21,13 +21,12 @@ class ZoneByDayTableGenerator(BaseTableGenerator):
             zone_day_errors[zone][day].append(error_minutes)
 
         md = ["# 구역별 요일별 평균 오차\n"]
-        md.append("## 평균 오차 (분) - 양수: 과대추정, 음수: 과소추정\n")
+        md.append("## 평균 오차 (분) - +: 과대추정, 음수: 과소추정\n")
 
-        zones = sorted(zone_day_errors.keys())
         headers = ['구역'] + self.days + ['평균']
 
         rows = []
-        for zone in zones:
+        for zone in self.all_zones:
             zone_name = self.zone_name_dict.get(zone, f'구역 {zone}')
             row_data = [f"**{zone_name}**"]
             zone_all_errors = []

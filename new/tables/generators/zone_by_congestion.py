@@ -45,11 +45,10 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         md.append("\n## 1. 구역별 혼잡도별 평균 오차\n")
         md.append("**평균 오차 (분)** - 양수: 과대추정, 음수: 과소추정\n")
 
-        zones = sorted(zone_congestion_errors.keys())
         headers = ['구역'] + [congestion_kr[level] for level in congestion_levels] + ['평균']
         rows = []
 
-        for zone in zones:
+        for zone in self.all_zones:
             zone_name = self.zone_name_dict.get(zone, f'구역 {zone}')
             row_data = [f"**{zone_name}**"]
             zone_all_errors = []
@@ -77,10 +76,10 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         overall_row = ["**전체**"]
 
         for level in congestion_levels:
-            all_errors = list(chain(*(zone_congestion_errors[z][level] for z in zones)))
+            all_errors = list(chain(*(zone_congestion_errors[z][level] for z in self.all_zones)))
             if all_errors:
                 avg = statistics.mean(all_errors)
-                total_count = sum(zone_congestion_counts[z][level] for z in zones)
+                total_count = sum(zone_congestion_counts[z][level] for z in self.all_zones)
                 overall_row.append(f"**{avg:+.2f}** ({total_count:,})")
             else:
                 overall_row.append("-")
@@ -102,7 +101,7 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         md.append("**형식:** 예측값 / 실제값 (초) - finalEstTime vs actualPassTime\n")
 
         wait_time_rows = []
-        for zone in zones:
+        for zone in self.all_zones:
             zone_name = self.zone_name_dict.get(zone, f'구역 {zone}')
             row_data = [f"**{zone_name}**"]
 
@@ -134,8 +133,8 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         overall_row = ["**전체**"]
 
         for level in congestion_levels:
-            all_predicted = list(chain(*(zone_congestion_predicted[z][level] for z in zones)))
-            all_actual = list(chain(*(zone_congestion_actual[z][level] for z in zones)))
+            all_predicted = list(chain(*(zone_congestion_predicted[z][level] for z in self.all_zones)))
+            all_actual = list(chain(*(zone_congestion_actual[z][level] for z in self.all_zones)))
             if all_predicted and all_actual:
                 avg_pred = statistics.mean(all_predicted)
                 avg_actual = statistics.mean(all_actual)

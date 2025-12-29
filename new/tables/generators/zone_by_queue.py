@@ -24,7 +24,6 @@ class ZoneByQueueTableGenerator(BaseTableGenerator):
             set(chain.from_iterable(zone_data.keys() for zone_data in zone_queue_errors.values())),
             key=lambda x: int(x.split('-')[0])
         )
-        zones = sorted(zone_queue_errors.keys())
 
         md = ["\n\n# 구역별 대기인원별 평균 오차\n"]
         md.append("## 평균 오차 (분) - 양수: 과대추정, 음수: 과소추정\n")
@@ -32,7 +31,7 @@ class ZoneByQueueTableGenerator(BaseTableGenerator):
         headers = ['구역'] + queue_cats + ['평균']
         rows = []
 
-        for zone in zones:
+        for zone in self.all_zones:
             zone_name = self.zone_name_dict.get(zone, f'구역 {zone}')
             row_data = [f"**{zone_name}**"]
             zone_all_errors = []

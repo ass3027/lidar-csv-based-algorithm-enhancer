@@ -33,13 +33,16 @@ class SummaryStatisticsTableGenerator(BaseTableGenerator):
         md.append("| 구역 | 샘플 수 | 평균 오차 | 중간값 | 표준편차 | 조기 추정 | 지연 추정 |")
         md.append("|---|---|---|---|---|---|---|")
 
-        for zone in sorted(zone_stats.keys()):
-            errors = zone_stats[zone]
-            stats = calculate_stats(errors)
+        for zone in self.all_zones:
+            errors = zone_stats.get(zone, [])
             zone_name = self.zone_name_dict.get(zone, f'구역 {zone}')
-            md.append(f"| {zone_name} | {stats['count']:,} | {stats['mean']:+.2f}분 | "
-                     f"{stats['median']:+.2f}분 | {stats['std']:.2f}분 | "
-                     f"{stats['early_count']:,} | {stats['late_count']:,} |")
+            if errors:
+                stats = calculate_stats(errors)
+                md.append(f"| {zone_name} | {stats['count']:,} | {stats['mean']:+.2f}분 | "
+                         f"{stats['median']:+.2f}분 | {stats['std']:.2f}분 | "
+                         f"{stats['early_count']:,} | {stats['late_count']:,} |")
+            else:
+                md.append(f"| {zone_name} | 0 | - | - | - | - | - |")
 
         return md
 
