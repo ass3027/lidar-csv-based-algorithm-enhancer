@@ -26,14 +26,15 @@ class ZoneByQueueTableGenerator(BaseTableGenerator):
         )
         zones = sorted(zone_queue_errors.keys())
 
-        md = ["\n\n# Average Error by Zone and Queue Size\n"]
-        md.append("## Average Error (minutes) - Positive: Over-estimation, Negative: Under-estimation\n")
+        md = ["\n\n# 구역별 대기인원별 평균 오차\n"]
+        md.append("## 평균 오차 (분) - 양수: 과대추정, 음수: 과소추정\n")
 
-        headers = ['Zone'] + queue_cats + ['Average']
+        headers = ['구역'] + queue_cats + ['평균']
         rows = []
 
         for zone in zones:
-            row_data = [f"**Zone {zone}**"]
+            zone_name = self.zone_name_dict.get(zone, f'구역 {zone}')
+            row_data = [f"**{zone_name}**"]
             zone_all_errors = []
 
             for queue in queue_cats:

@@ -15,19 +15,21 @@ class ZoneByDayTableGenerator(BaseTableGenerator):
 
         for row in self.data:
             zone = row['zone_id']
-            day = get_day_of_week(row['timestamp'])
+            day_eng = get_day_of_week(row['timestamp'])
+            day = self.day_mapping.get(day_eng, day_eng)
             error_minutes = self._calculate_error_minutes(row)
             zone_day_errors[zone][day].append(error_minutes)
 
-        md = ["# Average Error by Zone and Day of Week\n"]
-        md.append("## Average Error (minutes) - Positive: Over-estimation, Negative: Under-estimation\n")
+        md = ["# 구역별 요일별 평균 오차\n"]
+        md.append("## 평균 오차 (분) - 양수: 과대추정, 음수: 과소추정\n")
 
         zones = sorted(zone_day_errors.keys())
-        headers = ['Zone'] + self.days + ['Average']
+        headers = ['구역'] + self.days + ['평균']
 
         rows = []
         for zone in zones:
-            row_data = [f"**Zone {zone}**"]
+            zone_name = self.zone_name_dict.get(zone, f'구역 {zone}')
+            row_data = [f"**{zone_name}**"]
             zone_all_errors = []
 
             for day in self.days:
