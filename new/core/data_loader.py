@@ -126,7 +126,7 @@ def _parse_new_format_row(row_values, date_str):
     }
 
 
-def load_all_logs(log_dir="../csv", format_hint=None):
+def load_all_logs(log_dir="../csv", format_hint=None, from_date=None, to_date=None):
     """
     Load all queue log CSV files from directory
 
@@ -135,6 +135,8 @@ def load_all_logs(log_dir="../csv", format_hint=None):
     Args:
         log_dir: Directory containing CSV files (default: 'csv')
         format_hint: Force format detection ('old' or 'new'), None for auto-detect
+        from_date: Optional start date filter in YYYYMMDD format (inclusive)
+        to_date: Optional end date filter in YYYYMMDD format (inclusive)
 
     Returns:
         list: Parsed log records with standardized fields
@@ -151,6 +153,23 @@ def load_all_logs(log_dir="../csv", format_hint=None):
     if not csv_files:
         print(f"Warning: No CSV files found in '{log_dir}' directory.")
         return all_data
+
+    # Filter CSV files by date range if specified
+    if from_date or to_date:
+        filtered_files = []
+        for csv_file in csv_files:
+            date_str = csv_file.stem.replace('passingObject_', '')
+            if from_date and date_str < from_date:
+                continue
+            if to_date and date_str > to_date:
+                continue
+            filtered_files.append(csv_file)
+        csv_files = filtered_files
+        print(f"Date filter applied: {len(csv_files)} files selected (from: {from_date or 'any'}, to: {to_date or 'any'})")
+
+        if not csv_files:
+            print(f"Warning: No CSV files match the date range filter.")
+            return all_data
 
     for csv_file in csv_files:
         print(f"Loading: {csv_file.name}...")

@@ -10,6 +10,9 @@ from ...utils.congestion_utils import get_congestion_level, get_congestion_bins,
 
 class ZoneByCongestionTableGenerator(BaseTableGenerator):
     """Generate average error by zone and congestion level table"""
+    def __init__(self, data):
+        super().__init__(data)
+        self.congestion_kr_dict = {'Low': '원활', 'Medium': '보통', 'High': '혼잡', 'Very High': '매우혼잡'}
 
     def generate(self):
         zone_congestion_errors = defaultdict(lambda: defaultdict(list))
@@ -31,21 +34,20 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         md.append("## 혼잡도 정의\n")
 
         congestion_levels = get_congestion_bins()
-        congestion_kr = {'Low': '낮음', 'Medium': '보통', 'High': '높음', 'Very High': '매우높음'}
         ranges = get_congestion_ranges_for_all_groups()
 
         md.append("### 신분확인 구역 (1-3)\n")
         for level in congestion_levels:
-            md.append(f"- **{congestion_kr[level]}**: {ranges['identity'][level]}")
+            md.append(f"- **{self.congestion_kr_dict[level]}**: {ranges['identity'][level]}")
 
         md.append("\n### 보안검색 구역 (4-17)\n")
         for level in congestion_levels:
-            md.append(f"- **{congestion_kr[level]}**: {ranges['security'][level]}")
+            md.append(f"- **{self.congestion_kr_dict[level]}**: {ranges['security'][level]}")
 
         md.append("\n## 1. 구역별 혼잡도별 평균 오차\n")
-        md.append("**평균 오차 (분)** - 양수: 과대추정, -: 과소추정\n")
+        md.append("**평균 오차 (분)** | +: 과대추정, -: 과소추정\n")
 
-        headers = ['구역'] + [congestion_kr[level] for level in congestion_levels] + ['평균']
+        headers = ['구역'] + [self.congestion_kr_dict[level] for level in congestion_levels] + ['평균']
         rows = []
 
         for zone in self.all_zones:
@@ -98,7 +100,7 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
 
         # Add wait time comparison table
         md.append("\n\n## 2. 평균 대기시간 비교\n")
-        md.append("**형식:** 예측값 / 실제값 (초) - finalEstTime vs actualPassTime\n")
+        md.append("**형식:** 예측값 / 실제값 (분) - finalEstTime vs actualPassTime\n")
 
         wait_time_rows = []
         for zone in self.all_zones:
@@ -110,9 +112,9 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
                 actual = zone_congestion_actual[zone][level]
 
                 if predicted and actual:
-                    avg_pred = statistics.mean(predicted)
-                    avg_actual = statistics.mean(actual)
-                    row_data.append(f"{avg_pred:.0f} / {avg_actual:.0f}")
+                    avg_pred = statistics.mean(predicted) / 60
+                    avg_actual = statistics.mean(actual) / 60
+                    row_data.append(f"{avg_pred:.1f} / {avg_actual:.1f}")
                 else:
                     row_data.append("-")
 
@@ -120,9 +122,9 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
             zone_all_predicted = list(chain(*zone_congestion_predicted[zone].values()))
             zone_all_actual = list(chain(*zone_congestion_actual[zone].values()))
             if zone_all_predicted and zone_all_actual:
-                avg_pred = statistics.mean(zone_all_predicted)
-                avg_actual = statistics.mean(zone_all_actual)
-                row_data.append(f"**{avg_pred:.0f} / {avg_actual:.0f}**")
+                avg_pred = statistics.mean(zone_all_predicted) / 60
+                avg_actual = statistics.mean(zone_all_actual) / 60
+                row_data.append(f"**{avg_pred:.1f} / {avg_actual:.1f}**")
             else:
                 row_data.append("-")
 
@@ -136,9 +138,9 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
             all_predicted = list(chain(*(zone_congestion_predicted[z][level] for z in self.all_zones)))
             all_actual = list(chain(*(zone_congestion_actual[z][level] for z in self.all_zones)))
             if all_predicted and all_actual:
-                avg_pred = statistics.mean(all_predicted)
-                avg_actual = statistics.mean(all_actual)
-                overall_row.append(f"**{avg_pred:.0f} / {avg_actual:.0f}**")
+                avg_pred = statistics.mean(all_predicted) / 60
+                avg_actual = statistics.mean(all_actual) / 60
+                overall_row.append(f"**{avg_pred:.1f} / {avg_actual:.1f}**")
             else:
                 overall_row.append("-")
 
@@ -146,9 +148,9 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         grand_predicted = list(chain(*(chain(*d.values()) for d in zone_congestion_predicted.values())))
         grand_actual = list(chain(*(chain(*d.values()) for d in zone_congestion_actual.values())))
         if grand_predicted and grand_actual:
-            avg_pred = statistics.mean(grand_predicted)
-            avg_actual = statistics.mean(grand_actual)
-            overall_row.append(f"**{avg_pred:.0f} / {avg_actual:.0f}**")
+            avg_pred = statistics.mean(grand_predicted) / 60
+            avg_actual = statistics.mean(grand_actual) / 60
+            overall_row.append(f"**{avg_pred:.1f} / {avg_actual:.1f}**")
         else:
             overall_row.append("-")
 
