@@ -88,7 +88,7 @@ def generate_zone_by_day_table(data):
     
     # Generate markdown table
     md = ["# 존(Zone) x 요일별 평균 오차 테이블\n"]
-    md.append("## 평균 오차 (분) - 양수: 늦게 예상, 음수: 빠르게 예상\n")
+    md.append("## 평균 오차 (분) - +: 늦게 예상, -: 빠르게 예상\n")
     
     days = ['월', '화', '수', '목', '금', '토', '일']
     zones = sorted(zone_day_errors.keys())
@@ -141,7 +141,7 @@ def generate_zone_by_queue_table(data):
     zones = sorted(zone_queue_errors.keys())
     
     md = ["\n\n# 존(Zone) x 대기인원별 평균 오차 테이블\n"]
-    md.append("## 평균 오차 (분) - 양수: 늦게 예상, 음수: 빠르게 예상\n")
+    md.append("## 평균 오차 (분) - +: 늦게 예상, -: 빠르게 예상\n")
     
     # Header
     md.append("| Zone | " + " | ".join(queue_cats) + " | 평균 |")
@@ -186,7 +186,7 @@ def generate_queue_by_day_table(data):
     queue_cats = sorted(queue_day_errors.keys(), key=lambda x: int(x.split('-')[0]))
     
     md = ["\n\n# 대기인원 x 요일별 평균 오차 테이블\n"]
-    md.append("## 평균 오차 (분) - 양수: 늦게 예상, 음수: 빠르게 예상\n")
+    md.append("## 평균 오차 (분) - +: 늦게 예상, -: 빠르게 예상\n")
     
     # Header
     md.append("| 대기인원 | " + " | ".join(days) + " | 평균 |")
@@ -336,8 +336,8 @@ def main():
     tables = []
     tables.append("# 대기 예측시간 분석 - 요약 테이블\n")
     tables.append("> 이 문서는 대기 예측시간 분석 데이터를 다양한 관점에서 요약한 테이블입니다.\n")
-    tables.append("> - **양수(+)**: 실제보다 늦게 예상")
-    tables.append("> - **음수(-)**: 실제보다 빠르게 예상\n")
+    tables.append("> - **+(+)**: 실제보다 늦게 예상")
+    tables.append("> - **-(-)**: 실제보다 빠르게 예상\n")
     
     print("  - 존 x 요일 테이블 생성...")
     tables.append(generate_zone_by_day_table(data))

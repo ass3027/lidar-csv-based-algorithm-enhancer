@@ -26,7 +26,7 @@ class ZoneByQueueTableGenerator(BaseTableGenerator):
         )
 
         md = ["\n\n# 구역별 대기인원별 평균 오차\n"]
-        md.append("## 평균 오차 (분) - 양수: 과대추정, 음수: 과소추정\n")
+        md.append("## 평균 오차 (분) - 양수: 과대추정, -: 과소추정\n")
 
         headers = ['구역'] + queue_cats + ['평균']
         rows = []

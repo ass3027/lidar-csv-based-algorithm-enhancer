@@ -40,3 +40,4 @@ def generate_sample_count_table(data):
 def generate_summary_statistics_table(data):
     """Generate comprehensive summary statistics by multiple dimensions"""
     return SummaryStatisticsTableGenerator(data).generate()
+

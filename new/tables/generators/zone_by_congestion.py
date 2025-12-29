@@ -43,7 +43,7 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
             md.append(f"- **{congestion_kr[level]}**: {ranges['security'][level]}")
 
         md.append("\n## 1. 구역별 혼잡도별 평균 오차\n")
-        md.append("**평균 오차 (분)** - 양수: 과대추정, 음수: 과소추정\n")
+        md.append("**평균 오차 (분)** - 양수: 과대추정, -: 과소추정\n")
 
         headers = ['구역'] + [congestion_kr[level] for level in congestion_levels] + ['평균']
         rows = []
