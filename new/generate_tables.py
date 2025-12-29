@@ -9,8 +9,8 @@ Example:
     python new/generate_tables.py csv
 
 Output:
-    Saves to result/queue_analysis_summary_tables_YYYYMMDD.md
-    Date is extracted from CSV filenames in the data directory
+    Saves to result/대기시간_통계분석_YYYYMMDD_YYYYMMDD.md
+    Date range is extracted from CSV filenames in the data directory
 """
 
 import sys
@@ -36,11 +36,12 @@ from new.tables.table_generators import (
 
 
 
-def extract_date_from_csv_dir(data_dir):
-    """Extract the latest date from CSV filenames in directory"""
+def extract_date_range_from_csv_dir(data_dir):
+    """Extract the date range (from-to) from CSV filenames in directory"""
     csv_files = list(Path(data_dir).glob("passingObject_*.csv"))
     if not csv_files:
-        return datetime.now().strftime('%Y%m%d')
+        today = datetime.now().strftime('%Y%m%d')
+        return today, today
 
     # Extract dates from filenames (format: passingObject_YYYYMMDD.csv)
     dates = []
@@ -51,7 +52,11 @@ def extract_date_from_csv_dir(data_dir):
         except (IndexError, ValueError):
             continue
 
-    return max(dates) if dates else datetime.now().strftime('%Y%m%d')
+    if not dates:
+        today = datetime.now().strftime('%Y%m%d')
+        return today, today
+
+    return min(dates), max(dates)
 
 
 def main(data_dir):
@@ -92,15 +97,15 @@ def main(data_dir):
         f"{summary_stats_table}"
     )
 
-    # Extract date from CSV filenames
-    date_str = extract_date_from_csv_dir(data_dir)
+    # Extract date range from CSV filenames
+    from_date, to_date = extract_date_range_from_csv_dir(data_dir)
 
     # Create result directory if it doesn't exist
     result_dir = project_root / "result"
     result_dir.mkdir(exist_ok=True)
 
-    # Generate output filename with date
-    output_filename = f"queue_analysis_summary_tables_{date_str}.md"
+    # Generate output filename with date range
+    output_filename = f"대기시간_통계분석_{from_date}_{to_date}.md"
     output_path = result_dir / output_filename
 
     # Save to output file
