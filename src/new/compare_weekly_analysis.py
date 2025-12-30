@@ -18,13 +18,13 @@ from collections import defaultdict
 import statistics
 
 # Add project root to path
-project_root = Path(__file__).parent
+project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from new.tables.table_data_loader import load_and_process_data
-from new.utils.congestion_utils import get_congestion_level, get_congestion_bins
-from tables.generators.base import BaseTableGenerator
-from tables.generators.zone_by_congestion import ZoneByCongestionTableGenerator
+from src.new.tables.table_data_loader import load_and_process_data
+from src.new.utils.congestion_utils import get_congestion_level, get_congestion_bins
+from src.new.tables.generators.base import BaseTableGenerator
+from src.new.tables.generators.zone_by_congestion import ZoneByCongestionTableGenerator
 
 # Zone name mapping (Korean)
 ZONE_NAMES = BaseTableGenerator.ZONE_NAME_DICT
@@ -36,7 +36,7 @@ CONGESTION_KR = ZoneByCongestionTableGenerator.CONGESTION_KR_DICT
 def load_weekly_data(from_date, to_date):
     """Load and process data for a specific week"""
     data, outliers = load_and_process_data(
-        data_dir='csv',
+        data_dir='resource/csv',
         from_date=from_date,
         to_date=to_date
     )
@@ -463,7 +463,7 @@ def main():
     report = generate_comparison_report(week1_metrics, week2_metrics, week3_metrics, outlier_stats, trends)
 
     # Write output
-    result_dir = project_root / 'result'
+    result_dir = project_root / 'resource' / 'result'
     result_dir.mkdir(exist_ok=True)
     output_path = result_dir / '주간_비교분석_3주_트렌드.md'
 

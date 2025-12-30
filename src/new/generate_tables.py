@@ -21,14 +21,14 @@ from pathlib import Path
 from datetime import datetime
 
 # Add project root to path for imports
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 
 
-from new.tables.table_data_loader import load_and_process_data
+from src.new.tables.table_data_loader import load_and_process_data
 
-from new.tables.table_generators import (
+from src.new.tables.table_generators import (
     generate_zone_by_day_table,
     generate_zone_by_queue_table,
     generate_zone_by_congestion_table,
@@ -181,7 +181,7 @@ def main(data_dir, from_date=None, to_date=None):
     )
 
     # Create result directory if it doesn't exist
-    result_dir = project_root / "result"
+    result_dir = project_root / "resource" / "result"
     result_dir.mkdir(exist_ok=True)
 
     # Generate output filename with date range

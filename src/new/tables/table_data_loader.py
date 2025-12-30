@@ -3,7 +3,7 @@
 Data loader for table generation, using the core data loader and outlier filtering.
 """
 
-from new.core.data_loader import load_all_logs, filter_outliers
+from src.new.core.data_loader import load_all_logs, filter_outliers
 
 def load_and_process_data(data_dir="csv", format_hint=None, from_date=None, to_date=None):
     """

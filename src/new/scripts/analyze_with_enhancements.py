@@ -19,8 +19,8 @@ new_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(new_dir.parent))
 
 # Import from new package
-from new.core.data_loader import load_all_logs, filter_outliers
-from new.core.enhanced_analysis_engine import analyze_with_enhancements
+from src.new.core.data_loader import load_all_logs, filter_outliers
+from src.new.core.enhanced_analysis_engine import analyze_with_enhancements
 
 
 def print_improvement_summary(improvements):

@@ -19,8 +19,8 @@ new_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(new_dir.parent))
 
 # Import from new package
-from new.core.data_loader import load_all_logs, filter_outliers
-from new.enhancements.adjustment_trainer import train_all_enhancements
+from src.new.core.data_loader import load_all_logs, filter_outliers
+from src.new.enhancements.adjustment_trainer import train_all_enhancements
 
 
 def split_train_val_test(data, train_ratio=0.70, val_ratio=0.15):

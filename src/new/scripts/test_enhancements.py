@@ -10,10 +10,10 @@ new_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(new_dir.parent))
 
 # Import from new package
-from new.core.data_loader import load_all_logs, filter_outliers
-from new.core.analysis_engine import analyze_logs
-from new.core.enhanced_analysis_engine import analyze_with_enhancements
-from new.enhancements.adjustment_trainer import apply_all_enhancements
+from src.new.core.data_loader import load_all_logs, filter_outliers
+from src.new.core.analysis_engine import analyze_logs
+from src.new.core.enhanced_analysis_engine import analyze_with_enhancements
+from src.new.enhancements.adjustment_trainer import apply_all_enhancements
 
 
 def load_test_data(model_dir='models'):
