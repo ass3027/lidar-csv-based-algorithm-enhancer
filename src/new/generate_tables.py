@@ -240,6 +240,6 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # Resolve paths
-    _data_dir = project_root / args.data_dir
+    _data_dir = project_root / 'resource' / args.data_dir
 
     main(_data_dir, from_date=args.from_date, to_date=args.to_date)

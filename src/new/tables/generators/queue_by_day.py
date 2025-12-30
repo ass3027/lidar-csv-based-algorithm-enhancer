@@ -16,7 +16,7 @@ class QueueByDayTableGenerator(BaseTableGenerator):
         for row in self.data:
             queue_cat = categorize_queue_size(row['objectCount'])
             day_eng = get_day_of_week(row['timestamp'])
-            day = self.day_mapping.get(day_eng, day_eng)
+            day = super().DAY_MAPPING.get(day_eng, day_eng)
             error_minutes = self._calculate_error_minutes(row)
             queue_day_errors[queue_cat][day].append(error_minutes)
 
@@ -25,14 +25,14 @@ class QueueByDayTableGenerator(BaseTableGenerator):
         md = ["\n\n# 대기인원별 요일별 평균 오차\n"]
         md.append("## 평균 오차 (분) | +: 과대추정, -: 과소추정\n")
 
-        headers = ['대기인원'] + self.days + ['평균']
+        headers = ['대기인원'] + super().DAYS + ['평균']
         rows = []
 
         for queue in queue_cats:
             row_data = [f"**{queue}명**"]
             queue_all_errors = []
 
-            for day in self.days:
+            for day in super().DAYS:
                 errors = queue_day_errors[queue][day]
                 if errors:
                     avg = statistics.mean(errors)

@@ -10,9 +10,9 @@ from ...utils.congestion_utils import get_congestion_level, get_congestion_bins,
 
 class ZoneByCongestionTableGenerator(BaseTableGenerator):
     """Generate average error by zone and congestion level table"""
+    CONGESTION_KR_DICT = {'Low': '원활', 'Medium': '보통', 'High': '혼잡', 'Very High': '매우혼잡'}
     def __init__(self, data):
         super().__init__(data)
-        self.congestion_kr_dict = {'Low': '원활', 'Medium': '보통', 'High': '혼잡', 'Very High': '매우혼잡'}
 
     def generate(self):
         zone_congestion_errors = defaultdict(lambda: defaultdict(list))
@@ -38,20 +38,20 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
 
         md.append("### 신분확인 구역 (1-3)\n")
         for level in congestion_levels:
-            md.append(f"- **{self.congestion_kr_dict[level]}**: {ranges['identity'][level]}")
+            md.append(f"- **{self.CONGESTION_KR_DICT[level]}**: {ranges['identity'][level]}")
 
         md.append("\n### 보안검색 구역 (4-17)\n")
         for level in congestion_levels:
-            md.append(f"- **{self.congestion_kr_dict[level]}**: {ranges['security'][level]}")
+            md.append(f"- **{self.CONGESTION_KR_DICT[level]}**: {ranges['security'][level]}")
 
         md.append("\n## 1. 구역별 혼잡도별 평균 오차\n")
         md.append("**평균 오차 (분)** | +: 과대추정, -: 과소추정\n")
 
-        headers = ['구역'] + [self.congestion_kr_dict[level] for level in congestion_levels] + ['평균']
+        headers = ['구역'] + [self.CONGESTION_KR_DICT[level] for level in congestion_levels] + ['평균']
         rows = []
 
-        for zone in self.all_zones:
-            zone_name = self.zone_name_dict.get(zone, f'구역 {zone}')
+        for zone in super().ALL_ZONES:
+            zone_name = super().ZONE_NAME_DICT.get(zone, f'구역 {zone}')
             row_data = [f"**{zone_name}**"]
             zone_all_errors = []
 
@@ -78,10 +78,10 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         overall_row = ["**전체**"]
 
         for level in congestion_levels:
-            all_errors = list(chain(*(zone_congestion_errors[z][level] for z in self.all_zones)))
+            all_errors = list(chain(*(zone_congestion_errors[z][level] for z in super().ALL_ZONES)))
             if all_errors:
                 avg = statistics.mean(all_errors)
-                total_count = sum(zone_congestion_counts[z][level] for z in self.all_zones)
+                total_count = sum(zone_congestion_counts[z][level] for z in super().ALL_ZONES)
                 overall_row.append(f"**{avg:+.2f}** ({total_count:,})")
             else:
                 overall_row.append("-")
@@ -103,8 +103,8 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         md.append("**형식:** 예측값 / 실제값 (분) - finalEstTime vs actualPassTime\n")
 
         wait_time_rows = []
-        for zone in self.all_zones:
-            zone_name = self.zone_name_dict.get(zone, f'구역 {zone}')
+        for zone in super().ALL_ZONES:
+            zone_name = super().ZONE_NAME_DICT.get(zone, f'구역 {zone}')
             row_data = [f"**{zone_name}**"]
 
             for level in congestion_levels:
@@ -135,8 +135,8 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         overall_row = ["**전체**"]
 
         for level in congestion_levels:
-            all_predicted = list(chain(*(zone_congestion_predicted[z][level] for z in self.all_zones)))
-            all_actual = list(chain(*(zone_congestion_actual[z][level] for z in self.all_zones)))
+            all_predicted = list(chain(*(zone_congestion_predicted[z][level] for z in super().ALL_ZONES)))
+            all_actual = list(chain(*(zone_congestion_actual[z][level] for z in super().ALL_ZONES)))
             if all_predicted and all_actual:
                 avg_pred = statistics.mean(all_predicted) / 60
                 avg_actual = statistics.mean(all_actual) / 60

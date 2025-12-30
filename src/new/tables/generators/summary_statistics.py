@@ -33,9 +33,9 @@ class SummaryStatisticsTableGenerator(BaseTableGenerator):
         md.append("| 구역 | 샘플 수 | 평균 오차 | 중간값 | 표준편차 | 조기 추정 | 지연 추정 |")
         md.append("|---|---|---|---|---|---|---|")
 
-        for zone in self.all_zones:
+        for zone in super().ALL_ZONES:
             errors = zone_stats.get(zone, [])
-            zone_name = self.zone_name_dict.get(zone, f'구역 {zone}')
+            zone_name = super().ZONE_NAME_DICT.get(zone, f'구역 {zone}')
             if errors:
                 stats = calculate_stats(errors)
                 md.append(f"| {zone_name} | {stats['count']:,} | {stats['mean']:+.2f}분 | "
@@ -51,14 +51,14 @@ class SummaryStatisticsTableGenerator(BaseTableGenerator):
         for row in self.data:
             error_minutes = self._calculate_error_minutes(row)
             day_eng = get_day_of_week(row['timestamp'])
-            day = self.day_mapping.get(day_eng, day_eng)
+            day = super().DAY_MAPPING.get(day_eng, day_eng)
             day_stats[day].append(error_minutes)
 
         md = ["\n## 요일별 통계\n"]
         md.append("| 요일 | 샘플 수 | 평균 오차 | 중간값 | 표준편차 | 조기 추정 | 지연 추정 |")
         md.append("|---|---|---|---|---|---|---|")
 
-        for day in self.days:
+        for day in super().DAYS:
             if day in day_stats:
                 errors = day_stats[day]
                 stats = calculate_stats(errors)

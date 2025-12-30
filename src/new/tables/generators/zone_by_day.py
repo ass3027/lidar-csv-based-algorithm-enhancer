@@ -1,43 +1,38 @@
 #!/usr/bin/env python3
-"""Zone by queue size table generator"""
+"""Zone by day of week table generator"""
 
 import statistics
-from itertools import chain
 from collections import defaultdict
 from .base import BaseTableGenerator
-from ..table_utils import categorize_queue_size
+from ..table_utils import get_day_of_week
 
 
-class ZoneByQueueTableGenerator(BaseTableGenerator):
-    """Generate average error by zone and queue size table"""
+class ZoneByDayTableGenerator(BaseTableGenerator):
+    """Generate average error by zone and day of week table"""
 
     def generate(self):
-        zone_queue_errors = defaultdict(lambda: defaultdict(list))
+        zone_day_errors = defaultdict(lambda: defaultdict(list))
 
         for row in self.data:
             zone = row['zone_id']
-            queue_cat = categorize_queue_size(row['objectCount'])
+            day_eng = get_day_of_week(row['timestamp'])
+            day = super().DAY_MAPPING.get(day_eng, day_eng)
             error_minutes = self._calculate_error_minutes(row)
-            zone_queue_errors[zone][queue_cat].append(error_minutes)
+            zone_day_errors[zone][day].append(error_minutes)
 
-        queue_cats = sorted(
-            set(chain.from_iterable(zone_data.keys() for zone_data in zone_queue_errors.values())),
-            key=lambda x: int(x.split('-')[0])
-        )
-
-        md = ["\n\n# 구역별 대기인원별 평균 오차\n"]
+        md = ["# 구역별 요일별 평균 오차\n"]
         md.append("## 평균 오차 (분) | +: 과대추정, -: 과소추정\n")
 
-        headers = ['구역'] + queue_cats + ['평균']
-        rows = []
+        headers = ['구역'] + super().DAYS + ['평균']
 
-        for zone in self.all_zones:
-            zone_name = self.zone_name_dict.get(zone, f'구역 {zone}')
+        rows = []
+        for zone in super().ALL_ZONES:
+            zone_name = super().ZONE_NAME_DICT.get(zone, f'구역 {zone}')
             row_data = [f"**{zone_name}**"]
             zone_all_errors = []
 
-            for queue in queue_cats:
-                errors = zone_queue_errors[zone][queue]
+            for day in super().DAYS:
+                errors = zone_day_errors[zone][day]
                 if errors:
                     avg = statistics.mean(errors)
                     row_data.append(f"{avg:+.2f}")
