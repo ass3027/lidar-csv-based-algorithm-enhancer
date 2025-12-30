@@ -119,7 +119,7 @@ def assess_trend(overall_delta, lower_is_better):
     is_improving = (overall_delta < 0) if lower_is_better else (overall_delta > 0)
     return {
         'status': 'improving' if is_improving else 'degrading',
-        'icon': '✓' if is_improving else '⚠️',
+        'icon': '',
         'arrow': '↓' if overall_delta < 0 else '↑'
     }
 
@@ -249,8 +249,8 @@ def generate_data_quality_section(outlier_stats, week1_metrics, week2_metrics, w
 
     # Insights
     md.append("**인사이트:**")
-    md.append(f"- 📈 데이터 볼륨: Week 1 대비 Week 3에서 {filtered_trend['overall']['pct']:.0f}% 증가 ({format_number(w1_filtered)} → {format_number(w3_filtered)})")
-    md.append(f"- {'⚠️' if rate_trend['trend']['status'] == 'degrading' else '✓'} 이상치 비율: {w1_rate:.1f}% → {w2_rate:.1f}% → {w3_rate:.1f}%")
+    md.append(f"- 데이터 볼륨: Week 1 대비 Week 3에서 {filtered_trend['overall']['pct']:.0f}% 증가 ({format_number(w1_filtered)} → {format_number(w3_filtered)})")
+    md.append(f"- 이상치 비율: {w1_rate:.1f}% → {w2_rate:.1f}% → {w3_rate:.1f}%")
 
     if w2_rate > w1_rate:
         md.append(f"  - Week 2에서 이상치 비율 {'급증' if w2_rate - w1_rate > 5 else '증가'} ({w1_rate:.1f}% → {w2_rate:.1f}%)")
@@ -314,7 +314,7 @@ def generate_zone_performance_section(trends, week1_metrics, week2_metrics, week
     top_changes = identify_top_changes(zone_trends, n=3)
 
     if top_changes['degrading'] and top_changes['degrading'][0][1] > 0.3:
-        md.append("🔴 **가장 악화된 구역 (Week 1 → Week 3):**")
+        md.append(" **가장 악화된 구역 (Week 1 → Week 3):**")
         for i, (zone, delta) in enumerate(top_changes['degrading'], 1):
             if delta > 0.3:  # Only show significant degradations
                 zone_name = ZONE_NAMES.get(zone, f'구역 {zone}')
@@ -323,7 +323,7 @@ def generate_zone_performance_section(trends, week1_metrics, week2_metrics, week
                 md.append(f"{i}. {zone_name}: {delta:+.2f}분 악화 ({w1:+.2f} → {w3:+.2f})")
 
     if top_changes['improving'] and top_changes['improving'][0][1] < -0.1:
-        md.append("\n🟢 **개선된 구역:**")
+        md.append("\n **개선된 구역:**")
         for zone, delta in top_changes['improving']:
             if delta < -0.1:  # Only show meaningful improvements
                 zone_name = ZONE_NAMES.get(zone, f'구역 {zone}')
@@ -356,9 +356,9 @@ def generate_congestion_section(trends):
     for cong in get_congestion_bins():
         trend = congestion_trends[cong]
         if trend['trend']['status'] == 'improving':
-            md.append(f"- ✓ {CONGESTION_KR[cong]}: 개선 추세 ({trend['values'][0]:+.2f} → {trend['values'][2]:+.2f}분)")
+            md.append(f"- {CONGESTION_KR[cong]}: 개선 추세 ({trend['values'][0]:+.2f} → {trend['values'][2]:+.2f}분)")
         elif trend['trend']['status'] == 'degrading' and abs(trend['overall']['delta']) > 0.3:
-            md.append(f"- ⚠️ {CONGESTION_KR[cong]}: 악화 추세 ({trend['values'][0]:+.2f} → {trend['values'][2]:+.2f}분, {trend['overall']['delta']:+.2f}분)")
+            md.append(f"- {CONGESTION_KR[cong]}: 악화 추세 ({trend['values'][0]:+.2f} → {trend['values'][2]:+.2f}분, {trend['overall']['delta']:+.2f}분)")
 
     md.append("\n---\n")
     return '\n'.join(md)
@@ -374,8 +374,8 @@ def generate_summary_section(trends, outlier_stats):
     rate_change = w3_rate - w1_rate
 
     md.append("1. **데이터 품질**")
-    md.append(f"   - 📈 레코드 수: {outlier_stats['week1']['total_records']:,} → {outlier_stats['week3']['total_records']:,} (약 {(outlier_stats['week3']['total_records'] / outlier_stats['week1']['total_records']):.1f}배)")
-    md.append(f"   - {'⚠️' if rate_change > 0 else '✓'} 이상치 비율: {w1_rate:.1f}% → {w3_rate:.1f}% ({rate_change:+.1f}pp)\n")
+    md.append(f"   - 레코드 수: {outlier_stats['week1']['total_records']:,} → {outlier_stats['week3']['total_records']:,} (약 {(outlier_stats['week3']['total_records'] / outlier_stats['week1']['total_records']):.1f}배)")
+    md.append(f"   - 이상치 비율: {w1_rate:.1f}% → {w3_rate:.1f}% ({rate_change:+.1f}pp)\n")
 
     # Zone performance summary
     top_changes = identify_top_changes(trends['zone_trends'], n=3)
@@ -383,11 +383,11 @@ def generate_summary_section(trends, outlier_stats):
 
     if top_changes['degrading'] and top_changes['degrading'][0][1] > 0.5:
         worst_zone, worst_delta = top_changes['degrading'][0]
-        md.append(f"   - 🔴 최대 악화: {ZONE_NAMES.get(worst_zone, f'구역 {worst_zone}')} ({worst_delta:+.2f}분)")
+        md.append(f"   - 최대 악화: {ZONE_NAMES.get(worst_zone, f'구역 {worst_zone}')} ({worst_delta:+.2f}분)")
 
     if top_changes['improving'] and top_changes['improving'][0][1] < -0.1:
         best_zone, best_delta = top_changes['improving'][0]
-        md.append(f"   - ✓ 최대 개선: {ZONE_NAMES.get(best_zone, f'구역 {best_zone}')} ({best_delta:+.2f}분)\n")
+        md.append(f"   - 최대 개선: {ZONE_NAMES.get(best_zone, f'구역 {best_zone}')} ({best_delta:+.2f}분)\n")
     else:
         md.append("")
 
