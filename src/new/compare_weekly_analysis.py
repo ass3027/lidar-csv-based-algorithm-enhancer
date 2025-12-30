@@ -53,17 +53,26 @@ def calculate_week_metrics(data):
     zone_congestion_actual = defaultdict(lambda: defaultdict(list))
     congestion_errors = defaultdict(list)
 
+    all_predicted = []
+    all_actual = []
+
     for record in data:
         zone = record['zone_id']
         error_minutes = (record['finalEstTime'] - record['actualPassTime']) / 60
         congestion = get_congestion_level(record)
 
+        predicted_minutes = record['finalEstTime'] / 60
+        actual_minutes = record['actualPassTime'] / 60
+
         # Aggregate data
         zone_errors[zone].append(error_minutes)
         zone_congestion_errors[zone][congestion].append(error_minutes)
-        zone_congestion_predicted[zone][congestion].append(record['finalEstTime'] / 60)
-        zone_congestion_actual[zone][congestion].append(record['actualPassTime'] / 60)
+        zone_congestion_predicted[zone][congestion].append(predicted_minutes)
+        zone_congestion_actual[zone][congestion].append(actual_minutes)
         congestion_errors[congestion].append(error_minutes)
+
+        all_predicted.append(predicted_minutes)
+        all_actual.append(actual_minutes)
 
     # Calculate summary statistics
     return {
@@ -80,6 +89,8 @@ def calculate_week_metrics(data):
                 'actual': statistics.mean([r['actualPassTime'] / 60 for r in data if r['zone_id'] == z])
             } for z in zone_errors.keys()
         },
+        'overall_avg_predicted': statistics.mean(all_predicted) if all_predicted else 0,
+        'overall_avg_actual': statistics.mean(all_actual) if all_actual else 0,
         'total_samples': len(data),
         'zone_sample_counts': {z: len(errors) for z, errors in zone_errors.items()}
     }
@@ -193,7 +204,10 @@ def generate_comparison_report(week1_metrics, week2_metrics, week3_metrics, outl
     # Section 3: Congestion Analysis
     sections.append(generate_congestion_section(trends))
 
-    # Section 4: Summary and Recommendations
+    # Section 4: Average Wait Time Trends
+    sections.append(generate_wait_time_section(week1_metrics, week2_metrics, week3_metrics))
+
+    # Section 5: Summary and Recommendations
     sections.append(generate_summary_section(trends, outlier_stats))
 
     return '\n'.join(sections)
@@ -364,9 +378,71 @@ def generate_congestion_section(trends):
     return '\n'.join(md)
 
 
+def generate_wait_time_section(week1_metrics, week2_metrics, week3_metrics):
+    """Generate average wait time comparison section"""
+    md = ["## 4. 평균 대기시간 트렌드\n", "### 4.1 전체 평균 대기시간 (예측 vs 실제)\n"]
+
+    # Overall averages
+    w1_pred = week1_metrics['overall_avg_predicted']
+    w2_pred = week2_metrics['overall_avg_predicted']
+    w3_pred = week3_metrics['overall_avg_predicted']
+
+    w1_actual = week1_metrics['overall_avg_actual']
+    w2_actual = week2_metrics['overall_avg_actual']
+    w3_actual = week3_metrics['overall_avg_actual']
+
+    pred_trend = calculate_trend(w1_pred, w2_pred, w3_pred, lower_is_better=False)
+    actual_trend = calculate_trend(w1_actual, w2_actual, w3_actual, lower_is_better=False)
+
+    # Overestimation
+    w1_over = w1_pred - w1_actual
+    w2_over = w2_pred - w2_actual
+    w3_over = w3_pred - w3_actual
+    over_trend = calculate_trend(w1_over, w2_over, w3_over, lower_is_better=True)
+
+    md.append("| 지표 | Week 1 | Week 2 | Week 3 | W1→W2 | W2→W3 | 전체 변화 | 트렌드 |")
+    md.append("|------|--------|--------|--------|-------|-------|-----------|--------|")
+
+    # Predicted average
+    md.append(f"| 전체 평균 예측 | {w1_pred:.2f}분 | {w2_pred:.2f}분 | {w3_pred:.2f}분 | "
+              f"{pred_trend['w1_to_w2']['delta']:+.2f} | "
+              f"{pred_trend['w2_to_w3']['delta']:+.2f} | "
+              f"{pred_trend['overall']['delta']:+.2f} | "
+              f"{pred_trend['trend']['arrow']} |")
+
+    # Actual average
+    md.append(f"| 전체 평균 실제 | {w1_actual:.2f}분 | {w2_actual:.2f}분 | {w3_actual:.2f}분 | "
+              f"{actual_trend['w1_to_w2']['delta']:+.2f} | "
+              f"{actual_trend['w2_to_w3']['delta']:+.2f} | "
+              f"{actual_trend['overall']['delta']:+.2f} | "
+              f"{actual_trend['trend']['arrow']} |")
+
+    # Overestimation
+    md.append(f"| 과대추정 폭 | {w1_over:+.2f}분 | {w2_over:+.2f}분 | {w3_over:+.2f}분 | "
+              f"{over_trend['w1_to_w2']['delta']:+.2f} | "
+              f"{over_trend['w2_to_w3']['delta']:+.2f} | "
+              f"{over_trend['overall']['delta']:+.2f} | "
+              f"{over_trend['trend']['icon']} {over_trend['trend']['arrow']} |\n")
+
+    md.append("**인사이트:**")
+    if over_trend['trend']['status'] == 'degrading':
+        md.append(f"- 과대추정 폭 증가: {w1_over:.2f}분 → {w3_over:.2f}분 ({over_trend['overall']['delta']:+.2f}분)")
+    elif over_trend['trend']['status'] == 'improving':
+        md.append(f"- 과대추정 폭 개선: {w1_over:.2f}분 → {w3_over:.2f}분 ({over_trend['overall']['delta']:+.2f}분)")
+    else:
+        md.append(f"- 과대추정 폭 안정: 약 {w3_over:.2f}분 유지")
+
+    if actual_trend['trend']['status'] != 'stable':
+        direction = "증가" if actual_trend['overall']['delta'] > 0 else "감소"
+        md.append(f"- 실제 대기시간 {direction}: {w1_actual:.2f}분 → {w3_actual:.2f}분")
+
+    md.append("\n---\n")
+    return '\n'.join(md)
+
+
 def generate_summary_section(trends, outlier_stats):
     """Generate summary and recommendations section"""
-    md = ["## 4. 종합 요약 및 권장사항\n", "### 4.1 핵심 발견사항\n"]
+    md = ["## 5. 종합 요약 및 권장사항\n", "### 5.1 핵심 발견사항\n"]
 
     # Data quality summary
     w1_rate = outlier_stats['week1']['removal_rate_pct']
@@ -399,7 +475,7 @@ def generate_summary_section(trends, outlier_stats):
             status = '개선' if trend['trend']['status'] == 'improving' else '악화'
             md.append(f"   - {CONGESTION_KR[cong]}: {status} ({trend['overall']['delta']:+.2f}분)")
 
-    md.append("\n### 4.2 권장사항\n")
+    md.append("\n### 5.2 권장사항\n")
 
     # Generate recommendations based on findings
     if top_changes['degrading']:
