@@ -15,6 +15,20 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         super().__init__(data)
 
     def generate(self):
+        """Generate complete zone by congestion analysis"""
+        # Aggregate data
+        zone_congestion_errors, zone_congestion_counts, zone_congestion_predicted, zone_congestion_actual = self._aggregate_data()
+
+        # Build report sections
+        md = ["# 구역별 혼잡도별 분석\n"]
+        md.extend(self._generate_congestion_definition_section())
+        md.extend(self._generate_error_table(zone_congestion_errors, zone_congestion_counts))
+        md.extend(self._generate_wait_time_table(zone_congestion_predicted, zone_congestion_actual))
+
+        return "\n".join(md)
+
+    def _aggregate_data(self):
+        """Aggregate data by zone and congestion level"""
         zone_congestion_errors = defaultdict(lambda: defaultdict(list))
         zone_congestion_counts = defaultdict(lambda: defaultdict(int))
         zone_congestion_predicted = defaultdict(lambda: defaultdict(list))
@@ -30,7 +44,11 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
             zone_congestion_predicted[zone][congestion].append(row['finalEstTime'])
             zone_congestion_actual[zone][congestion].append(row['actualPassTime'])
 
-        md = ["# 구역별 혼잡도별 분석\n"]
+        return zone_congestion_errors, zone_congestion_counts, zone_congestion_predicted, zone_congestion_actual
+
+    def _generate_congestion_definition_section(self):
+        """Generate congestion level definition section"""
+        md = []
         md.append("## 혼잡도 정의\n")
 
         congestion_levels = get_congestion_bins()
@@ -44,9 +62,15 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         for level in congestion_levels:
             md.append(f"- **{self.CONGESTION_KR_DICT[level]}**: {ranges['security'][level]}")
 
+        return md
+
+    def _generate_error_table(self, zone_congestion_errors, zone_congestion_counts):
+        """Generate zone by congestion error table"""
+        md = []
         md.append("\n## 1. 구역별 혼잡도별 평균 오차\n")
         md.append("**평균 오차 (분)** | +: 과대추정, -: 과소추정\n")
 
+        congestion_levels = get_congestion_bins()
         headers = ['구역'] + [self.CONGESTION_KR_DICT[level] for level in congestion_levels] + ['평균']
         rows = []
 
@@ -98,11 +122,18 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         md.extend(self._format_markdown_table(headers, rows[:-2]))
         md.extend(rows[-2:])
 
-        # Add wait time comparison table
+        return md
+
+    def _generate_wait_time_table(self, zone_congestion_predicted, zone_congestion_actual):
+        """Generate predicted vs actual wait time comparison table"""
+        md = []
         md.append("\n\n## 2. 평균 대기시간 비교\n")
         md.append("**형식:** 예측값 / 실제값 (분) - finalEstTime vs actualPassTime\n")
 
+        congestion_levels = get_congestion_bins()
+        headers = ['구역'] + [self.CONGESTION_KR_DICT[level] for level in congestion_levels] + ['평균']
         wait_time_rows = []
+
         for zone in super().ALL_ZONES:
             zone_name = super().ZONE_NAME_DICT.get(zone, f'구역 {zone}')
             row_data = [f"**{zone_name}**"]
@@ -159,4 +190,4 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         md.extend(self._format_markdown_table(headers, wait_time_rows[:-2]))
         md.extend(wait_time_rows[-2:])
 
-        return "\n".join(md)
+        return md

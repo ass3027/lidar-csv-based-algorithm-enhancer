@@ -213,66 +213,68 @@ def generate_comparison_report(week1_metrics, week2_metrics, week3_metrics, outl
     return '\n'.join(sections)
 
 
-def generate_data_quality_section(outlier_stats, week1_metrics, week2_metrics, week3_metrics):
-    """Generate data quality comparison section"""
-    md = ["## 1. 데이터 품질 트렌드\n", "### 1.1 전체 레코드 추이\n"]
-
+def generate_record_trend_table(outlier_stats):
+    """Generate record count trend comparison table"""
     w1_total = outlier_stats['week1']['total_records']
     w2_total = outlier_stats['week2']['total_records']
     w3_total = outlier_stats['week3']['total_records']
-
-    w1_removed = outlier_stats['week1']['removed_records']
-    w2_removed = outlier_stats['week2']['removed_records']
-    w3_removed = outlier_stats['week3']['removed_records']
 
     w1_rate = outlier_stats['week1']['removal_rate_pct']
     w2_rate = outlier_stats['week2']['removal_rate_pct']
     w3_rate = outlier_stats['week3']['removal_rate_pct']
 
+    w1_filtered = outlier_stats['week1']['filtered_records']
+    w2_filtered = outlier_stats['week2']['filtered_records']
+    w3_filtered = outlier_stats['week3']['filtered_records']
+
     total_trend = calculate_trend(w1_total, w2_total, w3_total, lower_is_better=False)
     rate_trend = calculate_trend(w1_rate, w2_rate, w3_rate, lower_is_better=True)
+    filtered_trend = calculate_trend(w1_filtered, w2_filtered, w3_filtered, lower_is_better=False)
 
+    md = []
     md.append("| 지표 | Week 1 | Week 2 | Week 3 | W1→W2 | W2→W3 | 전체 변화 (W1→W3) | 트렌드 |")
     md.append("|------|--------|--------|--------|-------|-------|-----------------|--------|")
 
-    # Total records
     md.append(f"| 전체 레코드 | {format_number(w1_total)} | {format_number(w2_total)} | {format_number(w3_total)} | "
               f"{total_trend['w1_to_w2']['delta']:+,} ({total_trend['w1_to_w2']['pct']:+.1f}%) | "
               f"{total_trend['w2_to_w3']['delta']:+,} ({total_trend['w2_to_w3']['pct']:+.1f}%) | "
               f"{total_trend['overall']['delta']:+,} ({total_trend['overall']['pct']:+.1f}%) | "
               f"{total_trend['trend']['arrow']} |")
 
-    # Outlier rate
     md.append(f"| 이상치 제거율 | {w1_rate:.1f}% | {w2_rate:.1f}% | {w3_rate:.1f}% | "
               f"{rate_trend['w1_to_w2']['delta']:+.1f}pp | "
               f"{rate_trend['w2_to_w3']['delta']:+.1f}pp | "
               f"{rate_trend['overall']['delta']:+.1f}pp | "
               f"{rate_trend['trend']['icon']} {rate_trend['trend']['arrow']} |")
 
-    # Analysis records
-    w1_filtered = outlier_stats['week1']['filtered_records']
-    w2_filtered = outlier_stats['week2']['filtered_records']
-    w3_filtered = outlier_stats['week3']['filtered_records']
-    filtered_trend = calculate_trend(w1_filtered, w2_filtered, w3_filtered, lower_is_better=False)
-
     md.append(f"| 분석 대상 | {format_number(w1_filtered)} | {format_number(w2_filtered)} | {format_number(w3_filtered)} | "
               f"{filtered_trend['w1_to_w2']['delta']:+,} ({filtered_trend['w1_to_w2']['pct']:+.1f}%) | "
               f"{filtered_trend['w2_to_w3']['delta']:+,} ({filtered_trend['w2_to_w3']['pct']:+.1f}%) | "
               f"{filtered_trend['overall']['delta']:+,} ({filtered_trend['overall']['pct']:+.1f}%) | "
-              f"{filtered_trend['trend']['arrow']} |\n")
+              f"{filtered_trend['trend']['arrow']} |")
 
-    # Insights
-    md.append("**인사이트:**")
+    return '\n'.join(md), (w1_rate, w2_rate, w3_rate, w1_filtered, w3_filtered, filtered_trend)
+
+
+def generate_record_insights(w1_rate, w2_rate, w3_rate, w1_filtered, w3_filtered, filtered_trend):
+    """Generate insights for record trend data"""
+    md = []
+    md.append("\n**인사이트:**")
     md.append(f"- 데이터 볼륨: Week 1 대비 Week 3에서 {filtered_trend['overall']['pct']:.0f}% 증가 ({format_number(w1_filtered)} → {format_number(w3_filtered)})")
     md.append(f"- 이상치 비율: {w1_rate:.1f}% → {w2_rate:.1f}% → {w3_rate:.1f}%")
 
     if w2_rate > w1_rate:
         md.append(f"  - Week 2에서 이상치 비율 {'급증' if w2_rate - w1_rate > 5 else '증가'} ({w1_rate:.1f}% → {w2_rate:.1f}%)")
     if w3_rate < w2_rate:
-        md.append(f"  - Week 3에서 {'개선' if w2_rate - w3_rate > 2 else '소폭 개선'} ({w2_rate:.1f}% → {w3_rate:.1f}%)\n")
+        md.append(f"  - Week 3에서 {'개선' if w2_rate - w3_rate > 2 else '소폭 개선'} ({w2_rate:.1f}% → {w3_rate:.1f}%)")
 
-    # Outlier breakdown
-    md.append("### 1.2 이상치 유형별 추이\n")
+    return '\n'.join(md)
+
+
+def generate_outlier_breakdown_table(outlier_stats):
+    """Generate outlier type breakdown table"""
+    md = []
+    md.append("\n### 1.2 이상치 유형별 추이\n")
     md.append("| 이상치 유형 | Week 1 | Week 2 | Week 3 | 전체 변화 |")
     md.append("|------------|--------|--------|--------|-----------|")
 
@@ -291,25 +293,38 @@ def generate_data_quality_section(outlier_stats, week1_metrics, week2_metrics, w
         md.append(f"| {kr_name} | {format_number(w1)} | {format_number(w2)} | {format_number(w3)} | "
                   f"{delta:+,} ({pct:+.1f}%) |")
 
+    return '\n'.join(md)
+
+
+def generate_data_quality_section(outlier_stats, week1_metrics, week2_metrics, week3_metrics):
+    """Generate data quality comparison section"""
+    md = ["## 1. 데이터 품질 트렌드\n", "### 1.1 전체 레코드 추이\n"]
+
+    # Generate record trend table
+    table, trend_data = generate_record_trend_table(outlier_stats)
+    md.append(table)
+
+    # Generate insights
+    md.append(generate_record_insights(*trend_data))
+
+    # Generate outlier breakdown
+    md.append(generate_outlier_breakdown_table(outlier_stats))
+
     md.append("\n---\n")
     return '\n'.join(md)
 
 
-def generate_zone_performance_section(trends, week1_metrics, week2_metrics, week3_metrics):
-    """Generate zone performance comparison section"""
-    md = ["## 2. 구역별 예측 성능 트렌드\n", "### 2.1 전체 평균 오차 비교\n"]
-
+def generate_zone_error_table(zone_trends):
+    """Generate zone-level error comparison table"""
+    md = []
     md.append("| 구역 | Week 1 | Week 2 | Week 3 | W1→W2 | W2→W3 | 전체 변화 | 트렌드 |")
     md.append("|------|--------|--------|--------|-------|-------|-----------|--------|")
 
-    zone_trends = trends['zone_trends']
     for zone in sorted(zone_trends.keys()):
         zone_name = ZONE_NAMES.get(zone, f'구역 {zone}')
         trend = zone_trends[zone]
 
-        w1 = trend['values'][0]
-        w2 = trend['values'][1]
-        w3 = trend['values'][2]
+        w1, w2, w3 = trend['values']
 
         # Skip if all zeros
         if w1 == 0 and w2 == 0 and w3 == 0:
@@ -322,15 +337,19 @@ def generate_zone_performance_section(trends, week1_metrics, week2_metrics, week
                   f"{trend['overall']['delta']:+.2f} | "
                   f"{trend['trend']['icon']} {trend['trend']['arrow']} |")
 
-    md.append("\n**주요 발견:**\n")
+    return '\n'.join(md)
 
-    # Identify top changes
+
+def generate_zone_insights(zone_trends):
+    """Generate key findings for zone performance"""
+    md = ["\n**주요 발견:**\n"]
+
     top_changes = identify_top_changes(zone_trends, n=3)
 
     if top_changes['degrading'] and top_changes['degrading'][0][1] > 0.3:
         md.append(" **가장 악화된 구역 (Week 1 → Week 3):**")
         for i, (zone, delta) in enumerate(top_changes['degrading'], 1):
-            if delta > 0.3:  # Only show significant degradations
+            if delta > 0.3:
                 zone_name = ZONE_NAMES.get(zone, f'구역 {zone}')
                 w1 = zone_trends[zone]['values'][0]
                 w3 = zone_trends[zone]['values'][2]
@@ -339,34 +358,49 @@ def generate_zone_performance_section(trends, week1_metrics, week2_metrics, week
     if top_changes['improving'] and top_changes['improving'][0][1] < -0.1:
         md.append("\n **개선된 구역:**")
         for zone, delta in top_changes['improving']:
-            if delta < -0.1:  # Only show meaningful improvements
+            if delta < -0.1:
                 zone_name = ZONE_NAMES.get(zone, f'구역 {zone}')
                 w1 = zone_trends[zone]['values'][0]
                 w3 = zone_trends[zone]['values'][2]
                 md.append(f"- {zone_name}: {abs(delta):.2f}분 개선 ({w1:+.2f} → {w3:+.2f})")
 
+    return '\n'.join(md)
+
+
+def generate_zone_performance_section(trends, week1_metrics, week2_metrics, week3_metrics):
+    """Generate zone performance comparison section"""
+    md = ["## 2. 구역별 예측 성능 트렌드\n", "### 2.1 전체 평균 오차 비교\n"]
+
+    zone_trends = trends['zone_trends']
+
+    md.append(generate_zone_error_table(zone_trends))
+    md.append(generate_zone_insights(zone_trends))
+
     md.append("\n---\n")
     return '\n'.join(md)
 
 
-def generate_congestion_section(trends):
-    """Generate congestion level performance section"""
-    md = ["## 3. 혼잡도별 성능 트렌드\n"]
-
+def generate_congestion_error_table(congestion_trends):
+    """Generate congestion level error comparison table"""
+    md = []
     md.append("| 혼잡도 | Week 1 | Week 2 | Week 3 | 트렌드 |")
     md.append("|--------|--------|--------|--------|--------|")
 
-    congestion_trends = trends['congestion_trends']
     for cong in get_congestion_bins():
         trend = congestion_trends[cong]
         cong_kr = CONGESTION_KR[cong]
-
         w1, w2, w3 = trend['values']
 
         md.append(f"| {cong_kr} | {w1:+.2f}분 | {w2:+.2f}분 | {w3:+.2f}분 | "
                   f"{trend['trend']['icon']} {trend['trend']['arrow']} |")
 
-    md.append("\n**인사이트:**")
+    return '\n'.join(md)
+
+
+def generate_congestion_insights(congestion_trends):
+    """Generate insights for congestion level trends"""
+    md = ["\n**인사이트:**"]
+
     for cong in get_congestion_bins():
         trend = congestion_trends[cong]
         if trend['trend']['status'] == 'improving':
@@ -374,15 +408,24 @@ def generate_congestion_section(trends):
         elif trend['trend']['status'] == 'degrading' and abs(trend['overall']['delta']) > 0.3:
             md.append(f"- {CONGESTION_KR[cong]}: 악화 추세 ({trend['values'][0]:+.2f} → {trend['values'][2]:+.2f}분, {trend['overall']['delta']:+.2f}분)")
 
+    return '\n'.join(md)
+
+
+def generate_congestion_section(trends):
+    """Generate congestion level performance section"""
+    md = ["## 3. 혼잡도별 성능 트렌드\n"]
+
+    congestion_trends = trends['congestion_trends']
+
+    md.append(generate_congestion_error_table(congestion_trends))
+    md.append(generate_congestion_insights(congestion_trends))
+
     md.append("\n---\n")
     return '\n'.join(md)
 
 
-def generate_wait_time_section(week1_metrics, week2_metrics, week3_metrics):
-    """Generate average wait time comparison section"""
-    md = ["## 4. 평균 대기시간 트렌드\n", "### 4.1 전체 평균 대기시간 (예측 vs 실제)\n"]
-
-    # Overall averages
+def generate_wait_time_table(week1_metrics, week2_metrics, week3_metrics):
+    """Generate average wait time comparison table"""
     w1_pred = week1_metrics['overall_avg_predicted']
     w2_pred = week2_metrics['overall_avg_predicted']
     w3_pred = week3_metrics['overall_avg_predicted']
@@ -394,37 +437,40 @@ def generate_wait_time_section(week1_metrics, week2_metrics, week3_metrics):
     pred_trend = calculate_trend(w1_pred, w2_pred, w3_pred, lower_is_better=False)
     actual_trend = calculate_trend(w1_actual, w2_actual, w3_actual, lower_is_better=False)
 
-    # Overestimation
     w1_over = w1_pred - w1_actual
     w2_over = w2_pred - w2_actual
     w3_over = w3_pred - w3_actual
     over_trend = calculate_trend(w1_over, w2_over, w3_over, lower_is_better=True)
 
+    md = []
     md.append("| 지표 | Week 1 | Week 2 | Week 3 | W1→W2 | W2→W3 | 전체 변화 | 트렌드 |")
     md.append("|------|--------|--------|--------|-------|-------|-----------|--------|")
 
-    # Predicted average
     md.append(f"| 전체 평균 예측 | {w1_pred:.2f}분 | {w2_pred:.2f}분 | {w3_pred:.2f}분 | "
               f"{pred_trend['w1_to_w2']['delta']:+.2f} | "
               f"{pred_trend['w2_to_w3']['delta']:+.2f} | "
               f"{pred_trend['overall']['delta']:+.2f} | "
               f"{pred_trend['trend']['arrow']} |")
 
-    # Actual average
     md.append(f"| 전체 평균 실제 | {w1_actual:.2f}분 | {w2_actual:.2f}분 | {w3_actual:.2f}분 | "
               f"{actual_trend['w1_to_w2']['delta']:+.2f} | "
               f"{actual_trend['w2_to_w3']['delta']:+.2f} | "
               f"{actual_trend['overall']['delta']:+.2f} | "
               f"{actual_trend['trend']['arrow']} |")
 
-    # Overestimation
     md.append(f"| 과대추정 폭 | {w1_over:+.2f}분 | {w2_over:+.2f}분 | {w3_over:+.2f}분 | "
               f"{over_trend['w1_to_w2']['delta']:+.2f} | "
               f"{over_trend['w2_to_w3']['delta']:+.2f} | "
               f"{over_trend['overall']['delta']:+.2f} | "
-              f"{over_trend['trend']['icon']} {over_trend['trend']['arrow']} |\n")
+              f"{over_trend['trend']['icon']} {over_trend['trend']['arrow']} |")
 
-    md.append("**인사이트:**")
+    return '\n'.join(md), (w1_over, w3_over, over_trend, w1_actual, w3_actual, actual_trend)
+
+
+def generate_wait_time_insights(w1_over, w3_over, over_trend, w1_actual, w3_actual, actual_trend):
+    """Generate insights for wait time trends"""
+    md = ["\n**인사이트:**"]
+
     if over_trend['trend']['status'] == 'degrading':
         md.append(f"- 과대추정 폭 증가: {w1_over:.2f}분 → {w3_over:.2f}분 ({over_trend['overall']['delta']:+.2f}분)")
     elif over_trend['trend']['status'] == 'improving':
@@ -435,6 +481,17 @@ def generate_wait_time_section(week1_metrics, week2_metrics, week3_metrics):
     if actual_trend['trend']['status'] != 'stable':
         direction = "증가" if actual_trend['overall']['delta'] > 0 else "감소"
         md.append(f"- 실제 대기시간 {direction}: {w1_actual:.2f}분 → {w3_actual:.2f}분")
+
+    return '\n'.join(md)
+
+
+def generate_wait_time_section(week1_metrics, week2_metrics, week3_metrics):
+    """Generate average wait time comparison section"""
+    md = ["## 4. 평균 대기시간 트렌드\n", "### 4.1 전체 평균 대기시간 (예측 vs 실제)\n"]
+
+    table, trend_data = generate_wait_time_table(week1_metrics, week2_metrics, week3_metrics)
+    md.append(table)
+    md.append(generate_wait_time_insights(*trend_data))
 
     md.append("\n---\n")
     return '\n'.join(md)
