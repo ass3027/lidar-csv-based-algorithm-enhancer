@@ -4,7 +4,8 @@
 import csv
 from pathlib import Path
 from datetime import datetime, timedelta
-from ..utils.outlier_detection import detect_outliers_iqr
+from collections import defaultdict
+from ..utils.congestion_utils import get_congestion_level
 
 
 def _parse_time_to_seconds(time_str):
@@ -55,7 +56,7 @@ def _parse_old_format_row(row, date_str):
     out_time_dt = timestamp_dt
     in_time_dt = out_time_dt - timedelta(seconds=actual_pass_time_seconds)
 
-    return {
+    parsed = {
         'timestamp': timestamp_str,
         'object_id': None,  # Old format does not have object_id
         'zone_id': int(row['zone_id']),
@@ -69,6 +70,11 @@ def _parse_old_format_row(row, date_str):
         'actualPassTime_str': f"{actual_pass_time_seconds // 60:02d}:{actual_pass_time_seconds % 60:02d}",
         'date': date_str
     }
+
+    # Add congestion level
+    parsed['congestion_level'] = get_congestion_level(parsed)
+
+    return parsed
 
 
 def _parse_new_format_row(row_values, date_str):
@@ -111,7 +117,7 @@ def _parse_new_format_row(row_values, date_str):
 
     actual_pass_time_seconds = _parse_time_to_seconds(actual_pass_time_str)
 
-    return {
+    parsed = {
         'timestamp': timestamp,
         'object_id': object_id,
         'zone_id': zone_id,
@@ -124,6 +130,11 @@ def _parse_new_format_row(row_values, date_str):
         'finalEstTime': final_est_time,
         'actualPassTime_str': actual_pass_time_str
     }
+
+    # Add congestion level
+    parsed['congestion_level'] = get_congestion_level(parsed)
+
+    return parsed
 
 
 def load_all_logs(log_dir="../csv", format_hint=None, from_date=None, to_date=None):
