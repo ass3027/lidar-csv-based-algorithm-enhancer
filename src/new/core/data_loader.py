@@ -4,8 +4,13 @@
 import csv
 from pathlib import Path
 from datetime import datetime, timedelta
-from collections import defaultdict
 from ..utils.congestion_utils import get_congestion_level
+from ..utils.outlier_detection import (
+    check_hard_bounds,
+    compute_group_statistics,
+    build_outlier_statistics,
+    print_filter_summary
+)
 
 
 def _parse_time_to_seconds(time_str):
@@ -235,51 +240,117 @@ def load_all_logs(log_dir="../csv", format_hint=None, from_date=None, to_date=No
     return all_data
 
 
-def filter_outliers(data):
+def filter_outliers(data,
+                   min_sample_threshold=10,
+                   adaptive_lower_mult=0.3,
+                   adaptive_upper_mult=1.7,
+                   enable_adaptive=True,
+                   enable_stage1_hard_bounds=True):
     """
-    Remove outliers using IQR method across 4 metrics
+    Two-stage outlier filtering with zone-congestion-based thresholds
+
+    Stage 1: Hard-coded bounds by (zone_group, congestion_level)
+    Stage 2: Adaptive bounds by (zone_id, congestion_level) + fallback hard bounds
 
     Args:
-        data: List of parsed log records
+        data: List of record dictionaries with 'zone_id', 'congestion_level', 'actualPassTime'
+        min_sample_threshold: Minimum samples required for adaptive filtering (default: 10)
+        adaptive_lower_mult: Lower bound multiplier (default: 0.3 for 30%)
+        adaptive_upper_mult: Upper bound multiplier (default: 1.7 for 170%)
+        enable_adaptive: If False, skip stage 2 adaptive filtering (default: True)
+        enable_stage1_hard_bounds: If False, skip stage 1 hard bounds (default: True)
 
     Returns:
         tuple: (filtered_data, outlier_stats)
     """
-    print("\nDetecting outliers...")
+    print("\n이상치 탐지 (2단계 필터링)...")
 
-    error_extractors = {
-        'actual_time': lambda r: r['actualPassTime'],
-        'lidar_error': lambda r: r['lidarEstTime'] - r['actualPassTime'],
-        'throughput_error': lambda r: r['throughputEstTime'] - r['actualPassTime'],
-        'final_error': lambda r: r['finalEstTime'] - r['actualPassTime']
+    # Stage 1: Apply hard-coded zone-congestion bounds
+    stage1_data = []
+    tracking = {
+        'removed_by_hard_bounds_stage1': [],
+        'removed_by_adaptive': [],
+        'kept_records': [],
+        'skipped_adaptive_groups': []
     }
 
-    outlier_sets = {
-        name: detect_outliers_iqr([extractor(row) for row in data])
-        for name, extractor in error_extractors.items()
+    if enable_stage1_hard_bounds:
+        for record in data:
+            if check_hard_bounds(record):
+                stage1_data.append(record)
+            else:
+                tracking['removed_by_hard_bounds_stage1'].append(record)
+        print(f"  Stage 1: {len(data):,}건 → {len(stage1_data):,}건 (제거: {len(tracking['removed_by_hard_bounds_stage1']):,}건)")
+    else:
+        stage1_data = data
+        print(f"  Stage 1: 스킵됨")
+
+    # Legacy mode: skip stage 2
+    if not enable_adaptive:
+        outlier_stats = {
+            'total_records': len(data),
+            'removed_records': len(data) - len(stage1_data),
+            'filtered_records': len(stage1_data),
+            'removal_rate_pct': ((len(data) - len(stage1_data)) / len(data) * 100) if len(data) > 0 else 0,
+            'removal_breakdown': {
+                'removed_by_hard_bounds_stage1': len(tracking['removed_by_hard_bounds_stage1']),
+                'removed_by_adaptive': 0,
+                'skipped_groups_count': 0,
+            }
+        }
+        return stage1_data, outlier_stats
+
+    # Stage 2: Compute group statistics on stage1 data
+    group_stats = compute_group_statistics(stage1_data, min_sample_threshold, adaptive_lower_mult, adaptive_upper_mult)
+
+    # Stage 2: Apply adaptive filtering
+    filtered_data = []
+
+    for record in stage1_data:
+        zone = record.get('zone_id')
+        congestion = record.get('congestion_level')
+        actual_time = record.get('actualPassTime')
+
+        # Missing required fields - keep (already passed stage 1)
+        if zone is None or congestion is None or actual_time is None:
+            filtered_data.append(record)
+            tracking['kept_records'].append(record)
+            continue
+
+        stats = group_stats.get((zone, congestion))
+
+        # No statistics for this group - keep (already passed stage 1)
+        if stats is None:
+            filtered_data.append(record)
+            tracking['kept_records'].append(record)
+            continue
+
+        # Small sample group - skip adaptive
+        if stats['skip_adaptive_filter']:
+            filtered_data.append(record)
+            tracking['skipped_adaptive_groups'].append(record)
+            continue
+
+        # Apply adaptive filter
+        if not (stats['lower_bound'] <= actual_time <= stats['upper_bound']):
+            tracking['removed_by_adaptive'].append(record)
+            continue
+
+        # Passed all filters
+        filtered_data.append(record)
+        tracking['kept_records'].append(record)
+
+    # Build statistics
+    config = {
+        'min_sample_threshold': min_sample_threshold,
+        'adaptive_lower_mult': adaptive_lower_mult,
+        'adaptive_upper_mult': adaptive_upper_mult,
+        'enable_stage1_hard_bounds': enable_stage1_hard_bounds,
     }
 
-    all_outlier_indices = set().union(*outlier_sets.values())
+    outlier_stats = build_outlier_statistics(data, filtered_data, group_stats, tracking, config)
 
-    filtered_data = [
-        row for i, row in enumerate(data)
-        if i not in all_outlier_indices
-    ]
-
-    total_count = len(data)
-    removed_count = len(all_outlier_indices)
-    removal_rate = (removed_count / total_count) * 100 if total_count > 0 else 0
-
-    outlier_stats = {
-        'total_records': total_count,
-        'removed_records': removed_count,
-        'filtered_records': len(filtered_data),
-        'removal_rate_pct': removal_rate,
-        'outliers_by_type': {name: len(indices) for name, indices in outlier_sets.items()}
-    }
-
-    print(f"  Total records: {total_count:,}")
-    print(f"  Removed records: {removed_count:,} ({removal_rate:.1f}%)")
-    print(f"  Records after filtering: {len(filtered_data):,}")
+    # Print summary
+    print_filter_summary(outlier_stats)
 
     return filtered_data, outlier_stats

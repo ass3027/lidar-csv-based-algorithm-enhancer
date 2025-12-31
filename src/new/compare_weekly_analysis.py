@@ -272,21 +272,25 @@ def generate_record_insights(w1_rate, w2_rate, w3_rate, w1_filtered, w3_filtered
 
 
 def generate_outlier_breakdown_table(outlier_stats):
-    """Generate outlier type breakdown table"""
+    """Generate two-stage filtering breakdown table"""
     md = []
-    md.append("\n### 1.2 이상치 유형별 추이\n")
-    md.append("| 이상치 유형 | Week 1 | Week 2 | Week 3 | 전체 변화 |")
+    md.append("\n### 1.2 필터링 단계별 제거 추이\n")
+    md.append("| 필터링 단계 | Week 1 | Week 2 | Week 3 | 전체 변화 |")
     md.append("|------------|--------|--------|--------|-----------|")
 
-    for outlier_type, kr_name in [
-        ('actual_time', '실제 대기시간'),
-        ('lidar_error', 'LiDAR 예측 오차'),
-        ('throughput_error', '처리량 기반 오차'),
-        ('final_error', '최종 예측 오차')
+    # Get breakdown for each week
+    w1_breakdown = outlier_stats['week1'].get('removal_breakdown', {})
+    w2_breakdown = outlier_stats['week2'].get('removal_breakdown', {})
+    w3_breakdown = outlier_stats['week3'].get('removal_breakdown', {})
+
+    for stage_key, kr_name in [
+        ('removed_by_hard_bounds_stage1', 'Stage 1 - 하드 바운드'),
+        ('removed_by_adaptive', 'Stage 2 - 적응형 필터'),
+        ('skipped_groups_count', '소규모 그룹 (스킵)')
     ]:
-        w1 = outlier_stats['week1']['outliers_by_type'][outlier_type]
-        w2 = outlier_stats['week2']['outliers_by_type'][outlier_type]
-        w3 = outlier_stats['week3']['outliers_by_type'][outlier_type]
+        w1 = w1_breakdown.get(stage_key, 0)
+        w2 = w2_breakdown.get(stage_key, 0)
+        w3 = w3_breakdown.get(stage_key, 0)
         delta = w3 - w1
         pct = (delta / w1 * 100) if w1 else 0
 

@@ -104,23 +104,74 @@ def generate_outlier_detection_header(outlier_stats, from_date, to_date):
     from_date_formatted = f"{from_date[:4]}-{from_date[4:6]}-{from_date[6:]}"
     to_date_formatted = f"{to_date[:4]}-{to_date[4:6]}-{to_date[6:]}"
 
+    # Get breakdown statistics
+    breakdown = outlier_stats.get('removal_breakdown', {})
+    stage1_removed = breakdown.get('removed_by_hard_bounds_stage1', 0)
+    adaptive_removed = breakdown.get('removed_by_adaptive', 0)
+    skipped_groups = breakdown.get('skipped_groups_count', 0)
+
+    # Get configuration
+    config = outlier_stats.get('config', {})
+    min_threshold = config.get('min_sample_threshold', 10)
+    lower_mult = config.get('adaptive_lower_mult', 0.3)
+    upper_mult = config.get('adaptive_upper_mult', 1.7)
+
+    # Calculate congestion level breakdown
+    from collections import defaultdict
+    congestion_stats = defaultdict(lambda: {'kept': 0, 'removed_stage1': 0, 'removed_adaptive': 0})
+
+    group_stats = outlier_stats.get('group_statistics', {})
+    for (zone_id, congestion_level), stats in group_stats.items():
+        congestion_stats[congestion_level]['kept'] += stats.get('kept', 0)
+        congestion_stats[congestion_level]['removed_stage1'] += stats.get('removed_by_hard_bounds_stage1', 0)
+        congestion_stats[congestion_level]['removed_adaptive'] += stats.get('removed_adaptive', 0)
+
     header = [
         "# 대기시간 예측 알고리즘 분석 보고서\n",
         f"**분석 기간:** {from_date_formatted} ~ {to_date_formatted}\n",
         "---\n",
-        "## 데이터 품질 및 이상치 탐지\n",
+        "## 데이터 품질 및 필터링\n",
         f"- **전체 레코드:** {outlier_stats['total_records']:,}건",
-        f"- **이상치 제거:** {outlier_stats['removed_records']:,}건 ({outlier_stats['removal_rate_pct']:.1f}%)",
+        f"- **제거된 레코드:** {outlier_stats['removed_records']:,}건 ({outlier_stats['removal_rate_pct']:.1f}%)",
         f"- **분석 대상:** {outlier_stats['filtered_records']:,}건\n",
-        "### 이상치 탐지 기준 (IQR 방식)\n",
-        "다음 4가지 지표에 대해 IQR(Interquartile Range) 방식으로 이상치를 탐지하여 제거:",
-        f"- **실제 대기시간 (actualPassTime):** {outlier_stats['outliers_by_type']['actual_time']:,}건",
-        f"- **LiDAR 예측 오차:** {outlier_stats['outliers_by_type']['lidar_error']:,}건",
-        f"- **처리량 기반 예측 오차:** {outlier_stats['outliers_by_type']['throughput_error']:,}건",
-        f"- **최종 예측 오차:** {outlier_stats['outliers_by_type']['final_error']:,}건\n",
-        "> **참고:** 하나 이상의 지표에서 이상치로 탐지된 레코드는 모두 제거됩니다.\n",
-        "---\n"
+        "### 2단계 필터링 프로세스\n",
+        "**Stage 1: 구역-혼잡도 기반 하드 바운드 필터링**\n",
+        "- Zone 1-4 (신분확인): Low(0-8분), Medium(4-15분), High(6-30분), Very High(8-40분)",
+        "- Zone 5-17 (보안검색): Low(0-8분), Medium(2-15분), High(3-20분), Very High(4-30분)",
+        f"- **제거:** {stage1_removed:,}건\n",
+        "**Stage 2: 적응형 통계 필터링**\n",
+        f"- 그룹 단위: (zone_id, congestion_level) - 최대 68개 그룹",
+        f"- 필터링 범위: 그룹 평균의 {int(lower_mult*100)}%-{int(upper_mult*100)}%",
+        f"- 최소 샘플 요구: {min_threshold}건 (미달 시 적응형 필터 스킵)",
+        f"- **제거:** {adaptive_removed:,}건",
+        f"- **소규모 그룹 레코드:** {skipped_groups:,}건 (적응형 필터 미적용)\n",
+        "### 필터링 결과 요약\n",
+        f"| 단계 | 제거 건수 | 비율 |",
+        f"|------|----------|------|",
+        f"| Stage 1 - 하드 바운드 | {stage1_removed:,}건 | {(stage1_removed/outlier_stats['total_records']*100):.1f}% |",
+        f"| Stage 2 - 적응형 필터 | {adaptive_removed:,}건 | {(adaptive_removed/outlier_stats['total_records']*100):.1f}% |",
+        f"| **총 제거** | **{outlier_stats['removed_records']:,}건** | **{outlier_stats['removal_rate_pct']:.1f}%** |",
+        f"| **최종 분석 대상** | **{outlier_stats['filtered_records']:,}건** | **{(outlier_stats['filtered_records']/outlier_stats['total_records']*100):.1f}%** |\n",
+        "### 혼잡도별 필터링 통계\n",
+        f"| 혼잡도 | 유지 건수 | Stage 1 제거 | Stage 2 제거 | 유지율 |",
+        f"|------|----------|-------------|-------------|--------|"
     ]
+
+    # Add congestion level rows
+    for congestion_level in ['Low', 'Medium', 'High', 'Very High']:
+        stats = congestion_stats.get(congestion_level, {'kept': 0, 'removed_stage1': 0, 'removed_adaptive': 0})
+        total_cong = stats['kept'] + stats['removed_stage1'] + stats['removed_adaptive']
+        if total_cong > 0:
+            kept_pct = (stats['kept'] / total_cong * 100)
+            header.append(
+                f"| {congestion_level} | {stats['kept']:,}건 | {stats['removed_stage1']:,}건 | "
+                f"{stats['removed_adaptive']:,}건 | {kept_pct:.1f}% |"
+            )
+
+    header.extend([
+        "\n> **참고:** 센서 오류나 비정상적인 측정값은 2단계 필터링을 통해 자동으로 제거됩니다.\n",
+        "---\n"
+    ])
 
     return "\n".join(header)
 
@@ -197,8 +248,6 @@ def main(data_dir, from_date=None, to_date=None):
 
 
 if __name__ == '__main__':
-    project_root = Path(__file__).parent.parent
-
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
         description='Generate summary tables from queue log data',
