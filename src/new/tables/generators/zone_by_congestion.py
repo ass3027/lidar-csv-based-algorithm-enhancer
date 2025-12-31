@@ -128,7 +128,7 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         """Generate predicted vs actual wait time comparison table"""
         md = []
         md.append("\n\n## 2. 평균 대기시간 비교\n")
-        md.append("**형식:** 예측값 / 실제값 (분) - finalEstTime vs actualPassTime\n")
+        md.append("**형식:** 예측값 / 실제값 (min~max) (분) - finalEstTime vs actualPassTime\n")
 
         congestion_levels = get_congestion_bins()
         headers = ['구역'] + [self.CONGESTION_KR_DICT[level] for level in congestion_levels] + ['평균']
@@ -145,7 +145,9 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
                 if predicted and actual:
                     avg_pred = statistics.mean(predicted) / 60
                     avg_actual = statistics.mean(actual) / 60
-                    row_data.append(f"{avg_pred:.1f} / {avg_actual:.1f}")
+                    min_actual = min(actual) / 60
+                    max_actual = max(actual) / 60
+                    row_data.append(f"{avg_pred:.1f} / {avg_actual:.1f} ({min_actual:.1f}~{max_actual:.1f})")
                 else:
                     row_data.append("-")
 
@@ -155,7 +157,9 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
             if zone_all_predicted and zone_all_actual:
                 avg_pred = statistics.mean(zone_all_predicted) / 60
                 avg_actual = statistics.mean(zone_all_actual) / 60
-                row_data.append(f"**{avg_pred:.1f} / {avg_actual:.1f}**")
+                min_actual = min(zone_all_actual) / 60
+                max_actual = max(zone_all_actual) / 60
+                row_data.append(f"**{avg_pred:.1f} / {avg_actual:.1f} ({min_actual:.1f}~{max_actual:.1f})**")
             else:
                 row_data.append("-")
 
@@ -171,7 +175,9 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
             if all_predicted and all_actual:
                 avg_pred = statistics.mean(all_predicted) / 60
                 avg_actual = statistics.mean(all_actual) / 60
-                overall_row.append(f"**{avg_pred:.1f} / {avg_actual:.1f}**")
+                min_actual = min(all_actual) / 60
+                max_actual = max(all_actual) / 60
+                overall_row.append(f"**{avg_pred:.1f} / {avg_actual:.1f} ({min_actual:.1f}~{max_actual:.1f})**")
             else:
                 overall_row.append("-")
 
@@ -181,7 +187,9 @@ class ZoneByCongestionTableGenerator(BaseTableGenerator):
         if grand_predicted and grand_actual:
             avg_pred = statistics.mean(grand_predicted) / 60
             avg_actual = statistics.mean(grand_actual) / 60
-            overall_row.append(f"**{avg_pred:.1f} / {avg_actual:.1f}**")
+            min_actual = min(grand_actual) / 60
+            max_actual = max(grand_actual) / 60
+            overall_row.append(f"**{avg_pred:.1f} / {avg_actual:.1f} ({min_actual:.1f}~{max_actual:.1f})**")
         else:
             overall_row.append("-")
 
